@@ -71,61 +71,72 @@ python3 check_mister_cheats_v11.py --system SNES --deep
 python3 check_mister_cheats_v11.py --cheats-root /media/fat/Cheats --games-root /media/usb0/games --map Genesis=MegaDrive
 ```
 
-The cheat checker writes `cheat_rom_comparison_report.log` under `/media/fat/Scripts/logs`. It also accepts
-`--log-dir` and the `CHEATS_ROOT`, `GAMES_ROOT`, and `LOG_DIR` environment variables.
-Each run replaces its previous text report. Console colors follow the other report
-utilities and are omitted from saved logs.
+## Cheat Collection Checker
 
-Games and cheats must be in system subdirectories. The checker scans both trees
-recursively and compares within each system, with aliases for common folder names.
-By default it presents a numbered console menu built from the immediate folders
-present in both roots, recognizing aliases and excluding other unsupported CD/arcade
-systems. Select a console, comma-separated numbers, A for all listed consoles,
-or Q to quit. Only selected console directories are traversed. Use `--system SNES`
-(repeatable) or `--all` to skip the menu. Explicit `--system` can also check a
-console that has games but no cheat folder. Quitting leaves existing reports intact.
-The report highlights games
-without matching cheats first and omits cheats that have no game. A game without
-cheats is a normal report entry, not a scan error. The text report includes games without cheats. Use `--system` to limit the scan.
-`CRC_MATCH` confirms the raw ROM CRC agrees with the
-cheat filename's `[12345678]` tag. Exact filename comparisons ignore these CRC tags.
-A name match with a different
-CRC is flagged because the cheat may target another ROM revision. Region and
-revision tags are preserved when suggesting title matches.
+Compare the games you own with the cheats in `/media/fat/Cheats`. The checker
+writes `/media/fat/Scripts/logs/cheat_rom_comparison_report.log`, replacing the
+previous report each run. It does not rename, delete, or modify games or cheats.
 
-Matches are chosen per game in this order: raw CRC, headerless NES/SNES CRC, then exact filename stem
-(case-insensitive, excluding the file extension and bracketed CRC tags). Similar titles do not count as
-matches. Either a CRC
-match or an exact name match is sufficient. An exact name match with a different
-CRC is noted because compatibility is unverified. Games with neither match appear
-under games without matching cheats.
+### Selecting consoles
 
-The default console and text output lists only unmatched games, with up to
-three similar title suggestions per game (85% minimum similarity, within the same
-console). Suggestions ignore CRC tags and punctuation, but remain **unmatched**:
-they have neither the required CRC nor exact name match. The text report includes
-a per-console tally of checked, matched, unmatched, and unmatched games with
-suggestions. Each game is counted once even when several cheat files match it.
-Use `--deep` to include every confirmed match in the text output as well as
-verify ZIP contents. Cheats without games are not listed.
-Text details are grouped by the actual console folder, then by recursive game
-subfolder. ZIP members appear under their archive's virtual subfolders.
+Run `python3 check_mister_cheats_v11.py` for a numbered console menu. Select one
+or more numbers, **A** for all listed consoles, or **Q** to quit without changing
+the report. Use `--all` or repeatable `--system` options to skip the menu.
 
-ZIP comparisons use the ROM members, not the archive's checksum. Normally ZIP
-member CRCs come from archive metadata; `--deep` reads all supported ROM members
-and tests cheat archives for corruption. NES and SNES members are always read to
-also report possible headerless CRC matches. NES/SNES headerless CRC matches count as confirmed CRC matches, following
-MiSTer loader behavior. N64 ROMs are normalized to byte-swapped order for cheat CRC lookup; SMD
-interleaving is not converted. MegaCD/SegaCD, TGFX16-CD/PCE-CD, and PSX/PlayStation support name-only
-matching for `.cue`, `.chd`, `.iso`, `.m3u`, `.ccd`, `.pbp`, and `.img` games. Image CRCs and game IDs are
-not checked, even with `--deep`. Playlist-referenced images are not counted twice;
-BIN/audio tracks are ignored. Other CD/game-ID systems (such as Saturn) and
-arcade ROM sets are explicitly left unverified. Recursive matches describe files
-present on disk; MiSTer's actual lookup of nested cheat folders may vary by version.
-Missing matches and scan errors never trigger
-deletion or renaming; this script has no cleanup action. See
-[MiSTer's cheat documentation](https://mister-devel.github.io/MkDocs_MiSTer/cores/features/cheats/)
-for name/CRC lookup behavior.
+The menu lists consoles with folders in both the games and cheats trees, using
+aliases for common names. Supported collection folders include AtariLynx,
+GAMEBOY, GBA, Jaguar, MegaCD, MegaDrive, N64, NES, PSX, SGB, SMS, SNES,
+TGFX16, TGFX16-CD, and VirtualBoy. SGB remains separate from GAMEBOY.
+Explicit `--system` can check a games folder even when its cheat folder is missing.
+Only selected console folders are searched recursively.
+
+### Matching and results
+
+Cartridge matches use raw CRC first, then NES/SNES headerless or N64 byte-swapped
+CRC where applicable, then the filename without its extension. Name comparisons
+ignore case and bracketed eight-digit CRC tags. A name match counts toward cheat
+coverage, but does not establish that the codes work with that ROM revision.
+Region, revision, and hack tags remain significant.
+
+The report groups unmatched games by console and subfolder, with a per-console
+summary. Similar-title suggestions require at least 85% similarity and remain
+unmatched. Cheats without games are omitted. A game without cheats is a normal
+result; scan errors and empty-console warnings are reported separately.
+
+Use `--deep` to show matched-game details, read supported cartridge ROMs inside
+ZIPs, and test cheat ZIPs for corruption. Normal ZIP checks use member CRCs from
+archive metadata; NES, SNES, and N64 members are always read for their additional
+CRC handling. ZIP archive checksums are not used as game CRCs. SMD interleaving
+is not converted. Jaguar `.j64`, `.jag`, `.abs`, and `.cof`, Virtual Boy `.vb`/`.vboy`,
+and Lynx `.lnx`/`.lyx` files are recognized.
+
+### CD games
+
+MegaCD/SegaCD, TGFX16-CD/PCE-CD, and PSX/PlayStation use **name-only matching**
+for `.cue`, `.chd`, `.iso`, `.m3u`, `.ccd`, `.pbp`, and `.img` files. Disc CRCs
+and game IDs are not verified, including with `--deep`. Playlist-referenced
+images are not counted twice, and BIN/audio tracks are ignored. CD game ZIPs
+are not scanned. Other CD systems and arcade ROM sets are outside this checker.
+
+CD title comparisons ignore `(CD)`, `(SCD)`, and `(CD, SCD)` labels, normalize
+region abbreviations such as `(Jpn)`/`(Japan)` and `(Euro)`/`(Europe)`, and ignore
+collection tags containing only `FACT`, `FADT`, or `FABT`. Cotton's two known
+title orders are also recognized. Unknown tags, different regions, revisions,
+and hacks remain distinct.
+
+**A collection match does not confirm installation in the location the core uses.**
+For TGFX16-CD, put the cheat ZIP beside the game's disc image in its game folder,
+as described in the [TGFX16 core documentation](https://github.com/MiSTer-devel/TurboGrafx16_MiSTer#cheat-engine).
+
+### Exclusions and custom paths
+
+SNES MSU-1/MSU1 folders and tagged filenames, `.msu`/`.pcm` assets, and `.pal`/`.gbp`
+palette files are silently ignored. Other unsupported files appear in the skipped
+list. Scan errors can leave coverage incomplete.
+
+Use `--cheats-root`, `--games-root`, and `--log-dir` to change locations, or set
+`CHEATS_ROOT`, `GAMES_ROOT`, and `LOG_DIR`. Use `--map Genesis=MegaDrive` to map
+differently named system folders. Examples are in [installation and usage](#installation-and-usage).
 
 ## Paths and reports
 
@@ -143,7 +154,9 @@ Default locations include:
 
 Scripts expose selected environment-variable overrides, such as `MRA_ROOT`, `RBF_ROOT`, `MAME_ROOT`, `CONFIG_ROOT`, `MEDIA_ROOT`, `LOG_DIR`, `WPA_CONF`, and `MISTER_UBOOT_PATH`. Check each script's constants for the overrides it supports.
 
-Reports include `config_cleanup_report.log`, `arcade_cleanup_report.log`. Cleanup deletion logs describe the current run; previous deletion logs can be removed at the start of a later run.
+Reports include `config_cleanup_report.log`, `arcade_cleanup_report.log`, and
+`cheat_rom_comparison_report.log`. Wi-Fi diagnostics and Recent Arcade Files
+show their results on screen without creating report logs. Cleanup deletion logs describe the current run; previous deletion logs can be removed at the start of a later run.
 
 ## Before making changes
 
@@ -159,33 +172,3 @@ Reports include `config_cleanup_report.log`, `arcade_cleanup_report.log`. Cleanu
 Several script headers acknowledge concepts or helpers from [MiSTer-devel/Scripts_MiSTer](https://github.com/MiSTer-devel/Scripts_MiSTer). The USB polling and MAC address scripts identify their upstream basis as GPL-3.0-or-later. Those notices are preserved in the source. No additional blanket license is assigned to the collection here.
 
 This is an independent collection and is not an official MiSTer-devel release. No ROMs or FPGA core binaries are included.
-
-Wi-Fi diagnostics v27 and newest arcade files v6 display results on screen only;
-they do not create diagnostic/report log files. Existing old logs are untouched.
-
-Cheat checker v7 excludes bracketed eight-digit CRC tags from exact title matching.
-Region, revision, and hack tags remain significant; name-only matches do not verify compatibility.
-
-Cheat checker v8 adds MegaCD and TGFX16-CD name matching and excludes SNES
-MSU-1/MSU1 folders, tagged filenames, and `.msu`/`.pcm` assets from scans.
-
-Cheat checker v9 also includes PSX name matching, Jaguar `.j64`/`.jag`/`.abs`/`.cof`
-files, and AtariLynx/Lynx aliases. All 15 cheat folders shown in the collection can
-appear in the console menu when their corresponding game folders exist:
-AtariLynx, GAMEBOY, GBA, Jaguar, MegaCD, MegaDrive, N64, NES, PSX, SGB, SMS,
-SNES, TGFX16, TGFX16-CD, and VirtualBoy. SGB stays separate from GAMEBOY.
-
-Cheat checker v10 ignores CD media labels `(CD)`, `(SCD)`, and `(CD, SCD)`
-when comparing CD game names. It normalizes tag spacing and region abbreviations
-such as `(Jpn)`/`(Japan)` and `(Euro)`/`(Europe)`. Different regions, revisions,
-and hack tags remain distinct. These are name matches, not CRC verification.
-Specific TGFX16-CD aliases also recognize Rondo's `(Japan) (FABT, FACT)` naming
-and `Fantastic Night Dreams - Cotton (USA)` versus
-`Cotton - Fantastic Night Dreams (USA)`. These do not establish compatibility
-for other tagged variants.
-
-Cheat checker v11 ignores parenthesized CD collection labels containing only
-`FACT`, `FADT`, or `FABT`, in any comma-separated order, across all CD titles.
-This covers Gate of Thunder and Rondo without individual title exceptions.
-Unknown labels, regions, revisions, and hack tags are preserved. Similar-title
-suggestions use the same normalization as name matching.
