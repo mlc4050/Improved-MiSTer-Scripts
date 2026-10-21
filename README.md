@@ -14,7 +14,7 @@ A collection of ten standalone Python utilities for managing and maintaining a M
 | [`restore_ssh_customizations_v3.py`](restore_ssh_customizations_v3.py) | Restore a colored SSH prompt, `ls`/`ll` aliases, and `/media/fat/Scripts` as the startup directory. Replaces `/root/.profile` after confirmation. |
 | [`cleanup_orphan_mister_configs_v17.py`](cleanup_orphan_mister_configs_v17.py) | Identify orphan configuration files, input maps, DIP settings, and NVRAM using installed arcade MRAs, ROM ZIPs, and core files. Offers separate deletion confirmations. |
 | [`find_orphan_mame_zips_and_rbfs_v52.py`](find_orphan_mame_zips_and_rbfs_v52.py) | Report orphan MAME ZIPs, arcade RBFs, and missing references, with optional deeper ROM CRC checks and interactive cleanup. |
-| [`check_mister_cheats_v4.py`](check_mister_cheats_v4.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves a text report without changing games or cheats. |
+| [`check_mister_cheats_v5.py`](check_mister_cheats_v5.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves a text report without changing games or cheats. |
 | [`newest_arcade_mras_rbfs_v5_ctime.py`](newest_arcade_mras_rbfs_v5_ctime.py) | List recently changed MRA and RBF files, sorted by filesystem `ctime`, and save a report. Does not modify the scanned files. |
 
 ## Requirements
@@ -53,16 +53,16 @@ python3 find_orphan_mame_zips_and_rbfs_v52.py --deep
 python3 newest_arcade_mras_rbfs_v5_ctime.py --days 14
 
 # Compare /media/fat/Cheats with /media/fat/games:
-python3 check_mister_cheats_v4.py
+python3 check_mister_cheats_v5.py
 
 # Skip the console menu and scan all common consoles:
-python3 check_mister_cheats_v4.py --all
+python3 check_mister_cheats_v5.py --all
 
 # Limit the scan to SNES and read ZIP contents to verify CRCs:
-python3 check_mister_cheats_v4.py --system SNES --deep
+python3 check_mister_cheats_v5.py --system SNES --deep
 
 # Override paths or map differently named system folders:
-python3 check_mister_cheats_v4.py --cheats-root /media/fat/Cheats --games-root /media/usb0/games --map Genesis=MegaDrive
+python3 check_mister_cheats_v5.py --cheats-root /media/fat/Cheats --games-root /media/usb0/games --map Genesis=MegaDrive
 ```
 
 The cheat checker writes `cheat_rom_comparison_report.log` under `/media/fat/Scripts/logs`. It also accepts
@@ -109,8 +109,8 @@ ZIP comparisons use the ROM members, not the archive's checksum. Normally ZIP
 member CRCs come from archive metadata; `--deep` reads all supported ROM members
 and tests cheat archives for corruption. NES and SNES members are always read to
 also report possible headerless CRC matches. NES/SNES headerless CRC matches count as confirmed CRC matches, following
-MiSTer loader behavior. N64 byte
-order and SMD interleaving are not converted. CD/game-ID systems (such as PSX) and
+MiSTer loader behavior. N64 ROMs are normalized to byte-swapped order for cheat CRC lookup; SMD
+interleaving is not converted. CD/game-ID systems (such as PSX) and
 arcade ROM sets are explicitly left unverified. Recursive matches describe files
 present on disk; MiSTer's actual lookup of nested cheat folders may vary by version.
 Missing matches and scan errors never trigger
@@ -160,3 +160,8 @@ available in deep details.
 
 Cheat checker v4 removes CSV generation. Existing CSV files from older versions
 are left untouched. The grouped text log and console output remain available.
+
+Cheat checker v5 calculates the N64 byte-swapped cheat CRC for `.z64`, `.v64`,
+and `.n64` ROMs, detecting their byte order from the ROM signature. These files
+are read even inside ZIPs. Raw CRCs remain available; a normalized CRC match
+is confirmed separately. Unknown signatures do not produce a normalized match.

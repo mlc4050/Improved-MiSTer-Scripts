@@ -12,7 +12,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
-VERSION = "v4"
+VERSION = "v5"
 CHEATS_ROOT = os.environ.get("CHEATS_ROOT", "/media/fat/Cheats")
 GAMES_ROOT = os.environ.get("GAMES_ROOT", "/media/fat/games")
 LOG_DIR = os.environ.get("LOG_DIR", "/media/fat/Scripts/logs")
@@ -59,7 +59,7 @@ def walk_files(root, errors, systems=None):
 
 
 def read_rom(stream, size, extension):
-    """Raw CRC plus diagnostic headerless CRCs; never claim they match the core."""
+    """Raw CRC plus NES/SNES headerless CRCs."""
     prefix = stream.read(512)
     raw = zlib.crc32(prefix)
     offset = None
@@ -77,6 +77,38 @@ def read_rom(stream, size, extension):
             stripped = zlib.crc32(block, stripped)
     return "{:08X}".format(raw & 0xffffffff), (
         "{:08X}".format(stripped & 0xffffffff) if offset is not None else "")
+
+
+def read_game(stream, size, extension):
+    if extension not in (".z64", ".v64", ".n64"):
+        raw, stripped = read_rom(stream, size, extension)
+        return raw, stripped, ""
+    raw = normalized = 0
+    magic = None
+    valid = size % 4 == 0
+    while True:
+        data = stream.read(1024 * 1024)
+        if not data:
+            break
+        if magic is None:
+            magic = data[:4]
+        raw = zlib.crc32(data, raw)
+        if magic == bytes.fromhex("80371240"):
+            swapped = bytearray(data)
+            swapped[0::2], swapped[1::2] = data[1::2], data[0::2]
+        elif magic == bytes.fromhex("37804012"):
+            swapped = data
+        elif magic == bytes.fromhex("40123780"):
+            swapped = bytearray(data)
+            swapped[0::4], swapped[1::4] = data[2::4], data[3::4]
+            swapped[2::4], swapped[3::4] = data[0::4], data[1::4]
+        else:
+            valid = False
+            swapped = data
+        if valid:
+            normalized = zlib.crc32(swapped, normalized)
+    return "{:08X}".format(raw & 0xffffffff), "", (
+        "{:08X}".format(normalized & 0xffffffff) if valid and magic else "")
 
 
 def inventory_games(root, wanted, errors, skipped, deep=False):
@@ -102,17 +134,17 @@ def inventory_games(root, wanted, errors, skipped, deep=False):
                         if info.is_dir() or member_ext not in ROM_EXTENSIONS:
                             continue
                         # ZIP CRC is the uncompressed member CRC, never the ZIP's CRC.
-                        crc, stripped = "{:08X}".format(info.CRC), ""
-                        if deep or member_ext in (".nes", ".sfc", ".smc"):
+                        crc, stripped, n64_crc = "{:08X}".format(info.CRC), "", ""
+                        if deep or member_ext in (".nes", ".sfc", ".smc", ".z64", ".v64", ".n64"):
                             with archive.open(info) as stream:
-                                crc, stripped = read_rom(stream, info.file_size, member_ext)
+                                crc, stripped, n64_crc = read_game(stream, info.file_size, member_ext)
                         games.append(dict(system=system, path=str(rel) + "::" + info.filename,
-                                          stem=member.stem, crc=crc, stripped=stripped))
+                                          stem=member.stem, crc=crc, stripped=stripped, n64_crc=n64_crc))
             else:
                 with path.open("rb") as stream:
-                    crc, stripped = read_rom(stream, path.stat().st_size, ext)
+                    crc, stripped, n64_crc = read_game(stream, path.stat().st_size, ext)
                 games.append(dict(system=system, path=str(rel), stem=path.stem,
-                                  crc=crc, stripped=stripped))
+                                  crc=crc, stripped=stripped, n64_crc=n64_crc))
         except (OSError, ValueError, RuntimeError, NotImplementedError, zipfile.BadZipFile) as exc:
             errors.append("{}: {}".format(rel, exc))
     return games
@@ -168,6 +200,9 @@ def compare(cheats, games):
         if not matches and header_crc:
             matches = indexes["crc"].get((system, header_crc), [])
             status = "HEADERLESS_CRC_MATCH"
+        if not matches and game.get("n64_crc"):
+            matches = indexes["crc"].get((system, game["n64_crc"]), [])
+            status = "N64_BYTE_SWAPPED_CRC_MATCH"
         if not matches:
             matches = indexes["name"].get((system, game["stem"].casefold()), [])
             status = "EXACT_NAME_MATCH"
@@ -175,9 +210,11 @@ def compare(cheats, games):
             missing.append(game)
             continue
         for cheat in matches:
-            crc_match = bool(cheat["crc"] and cheat["crc"] in (game["crc"], header_crc))
+            crc_match = bool(cheat["crc"] and cheat["crc"] in (game["crc"], header_crc, game.get("n64_crc", "")))
             note = ""
-            if status == "HEADERLESS_CRC_MATCH":
+            if status == "N64_BYTE_SWAPPED_CRC_MATCH":
+                note = "N64 byte-swapped CRC: " + game["n64_crc"]
+            elif status == "HEADERLESS_CRC_MATCH":
                 note = "CRC matches ROM data excluding its header (MiSTer loader behavior)."
             elif status != "CRC_MATCH":
                 note = "Counted as matched by name; cheat compatibility is not verified."
@@ -311,7 +348,7 @@ def main(argv=None):
              "Scan errors: {} | Skipped files: {}".format(len(errors), len(skipped)), "",
              "Read-only: no ROMs or cheats are renamed, deleted, or modified.",
              "Systems are compared separately using folder names and configured aliases.",
-             "Match order: raw/headerless NES-SNES CRC, then exact filename stem (case-insensitive).",
+             "Match order: raw or core-format CRC, then exact filename stem (case-insensitive).",
              "Name matches count as matches even with different CRCs; compatibility is unverified.",
              "Only selected console folders are searched recursively in both trees.",
              "Games without matching cheats are listed; cheats without games are omitted.",
@@ -319,8 +356,8 @@ def main(argv=None):
              "Matched-game details are shown only with --deep.",
              "A game without cheats is a normal report entry, not a scan error.",
              "CRC_MATCH means raw ROM CRC agrees; this does not test cheat code correctness.",
-             "ZIP CRCs come from member metadata unless --deep is used (NES/SNES are read).",
-             "NES/SNES headerless CRCs count as matches. N64 byte order/SMD interleaving are not converted.",
+             "ZIP CRCs come from metadata unless --deep is used (NES/SNES/N64 are always read).",
+             "NES/SNES headerless and N64 byte-swapped CRCs count as matches. SMD interleaving is not converted.",
              "CD/game-ID systems and arcade sets are not verified by this cartridge checker.",
              "Scan errors can make the list of games without matching cheats incomplete.", "",
              "QUICK SUMMARY", "-" * 72]
