@@ -13,7 +13,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
-VERSION = "v2"
+VERSION = "v3"
 CHEATS_ROOT = os.environ.get("CHEATS_ROOT", "/media/fat/Cheats")
 GAMES_ROOT = os.environ.get("GAMES_ROOT", "/media/fat/games")
 LOG_DIR = os.environ.get("LOG_DIR", "/media/fat/Scripts/logs")
@@ -163,6 +163,12 @@ def compare(cheats, games):
         system = game["system"]
         matches = indexes["crc"].get((system, game["crc"]), [])
         status = "CRC_MATCH"
+        # NES iNES and SNES copier headers are excluded by MiSTer's loader CRC.
+        rom_ext = Path(game["path"].split("::")[-1]).suffix.casefold()
+        header_crc = game["stripped"] if rom_ext in (".nes", ".sfc", ".smc") else ""
+        if not matches and header_crc:
+            matches = indexes["crc"].get((system, header_crc), [])
+            status = "HEADERLESS_CRC_MATCH"
         if not matches:
             matches = indexes["name"].get((system, game["stem"].casefold()), [])
             status = "EXACT_NAME_MATCH"
@@ -170,9 +176,11 @@ def compare(cheats, games):
             missing.append(game)
             continue
         for cheat in matches:
-            crc_match = bool(cheat["crc"] and cheat["crc"] == game["crc"])
+            crc_match = bool(cheat["crc"] and cheat["crc"] in (game["crc"], header_crc))
             note = ""
-            if status != "CRC_MATCH":
+            if status == "HEADERLESS_CRC_MATCH":
+                note = "CRC matches ROM data excluding its header (MiSTer loader behavior)."
+            elif status != "CRC_MATCH":
                 note = "Counted as matched by name; cheat compatibility is not verified."
                 if cheat["crc"] and not crc_match:
                     note += " Checksums differ."
@@ -196,7 +204,11 @@ def possible_matches(cheats, missing):
     for game in missing:
         title = re.sub(r"[^a-z0-9]+", " ", title_key(game["stem"])).strip()
         choices = titles[game["system"]]
-        for close in difflib.get_close_matches(title, sorted(choices), n=3, cutoff=0.85):
+        # Different numbered games must not become sequel suggestions.
+        numbers = re.findall(r"\b\d+\b", title)
+        compatible = [choice for choice in choices
+                      if re.findall(r"\b\d+\b", choice) == numbers]
+        for close in difflib.get_close_matches(title, sorted(compatible), n=3, cutoff=0.85):
             for cheat in choices[close]:
                 candidates[game["system"], game["path"]].append(cheat)
     return candidates
@@ -300,7 +312,7 @@ def main(argv=None):
              "Scan errors: {} | Skipped files: {}".format(len(errors), len(skipped)), "",
              "Read-only: no ROMs or cheats are renamed, deleted, or modified.",
              "Systems are compared separately using folder names and configured aliases.",
-             "Match order: raw CRC, then exact filename stem (case-insensitive).",
+             "Match order: raw/headerless NES-SNES CRC, then exact filename stem (case-insensitive).",
              "Name matches count as matches even with different CRCs; compatibility is unverified.",
              "Only selected console folders are searched recursively in both trees.",
              "Games without matching cheats are listed; cheats without games are omitted.",
@@ -309,7 +321,7 @@ def main(argv=None):
              "A game without cheats is a normal report entry, not a scan error.",
              "CRC_MATCH means raw ROM CRC agrees; this does not test cheat code correctness.",
              "ZIP CRCs come from member metadata unless --deep is used (NES/SNES are read).",
-             "Headerless CRCs are diagnostic only. N64 byte order/SMD interleaving are not converted.",
+             "NES/SNES headerless CRCs count as matches. N64 byte order/SMD interleaving are not converted.",
              "CD/game-ID systems and arcade sets are not verified by this cartridge checker.",
              "Scan errors can make the list of games without matching cheats incomplete.", "",
              "QUICK SUMMARY", "-" * 72]
@@ -363,8 +375,10 @@ def main(argv=None):
         for row in rows:
             previous = group_heading(row["game"], previous)
             lines.extend(["    " + row["game"], "      {}: {}".format(row["status"], row["cheat"]),
-                          "      ROM CRC: {} | Cheat CRC: {}".format(
+                          "      Raw ROM CRC: {} | Cheat CRC: {}".format(
                               row["game_crc"], row["cheat_crc"] or "not tagged")])
+            if row["headerless_crc"]:
+                lines.append("      Headerless CRC: " + row["headerless_crc"])
             if row["note"]:
                 lines.append("      Note: " + row["note"])
     lines.extend(["", "ERRORS / INCOMPLETE SCANS", "=" * 72] + (errors or ["None"]))

@@ -14,7 +14,7 @@ A collection of ten standalone Python utilities for managing and maintaining a M
 | [`restore_ssh_customizations_v3.py`](restore_ssh_customizations_v3.py) | Restore a colored SSH prompt, `ls`/`ll` aliases, and `/media/fat/Scripts` as the startup directory. Replaces `/root/.profile` after confirmation. |
 | [`cleanup_orphan_mister_configs_v17.py`](cleanup_orphan_mister_configs_v17.py) | Identify orphan configuration files, input maps, DIP settings, and NVRAM using installed arcade MRAs, ROM ZIPs, and core files. Offers separate deletion confirmations. |
 | [`find_orphan_mame_zips_and_rbfs_v52.py`](find_orphan_mame_zips_and_rbfs_v52.py) | Report orphan MAME ZIPs, arcade RBFs, and missing references, with optional deeper ROM CRC checks and interactive cleanup. |
-| [`check_mister_cheats_v2.py`](check_mister_cheats_v2.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves text and CSV reports without changing games or cheats. |
+| [`check_mister_cheats_v3.py`](check_mister_cheats_v3.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves text and CSV reports without changing games or cheats. |
 | [`newest_arcade_mras_rbfs_v5_ctime.py`](newest_arcade_mras_rbfs_v5_ctime.py) | List recently changed MRA and RBF files, sorted by filesystem `ctime`, and save a report. Does not modify the scanned files. |
 
 ## Requirements
@@ -53,16 +53,16 @@ python3 find_orphan_mame_zips_and_rbfs_v52.py --deep
 python3 newest_arcade_mras_rbfs_v5_ctime.py --days 14
 
 # Compare /media/fat/Cheats with /media/fat/games:
-python3 check_mister_cheats_v2.py
+python3 check_mister_cheats_v3.py
 
 # Skip the console menu and scan all common consoles:
-python3 check_mister_cheats_v2.py --all
+python3 check_mister_cheats_v3.py --all
 
 # Limit the scan to SNES and read ZIP contents to verify CRCs:
-python3 check_mister_cheats_v2.py --system SNES --deep
+python3 check_mister_cheats_v3.py --system SNES --deep
 
 # Override paths or map differently named system folders:
-python3 check_mister_cheats_v2.py --cheats-root /media/fat/Cheats --games-root /media/usb0/games --map Genesis=MegaDrive
+python3 check_mister_cheats_v3.py --cheats-root /media/fat/Cheats --games-root /media/usb0/games --map Genesis=MegaDrive
 ```
 
 The cheat checker writes `cheat_rom_comparison_report.log` and
@@ -89,7 +89,7 @@ from titles that agree only after stripping CRC tags. A name match with a differ
 CRC is flagged because the cheat may target another ROM revision. Region and
 revision tags are preserved when suggesting title matches.
 
-Matches are chosen per game in this order: raw CRC, then exact filename stem
+Matches are chosen per game in this order: raw CRC, headerless NES/SNES CRC, then exact filename stem
 (case-insensitive, excluding the file extension). Similar titles do not count as
 matches, including titles that agree only after removing a CRC tag. Either a CRC
 match or an exact name match is sufficient. An exact name match with a different
@@ -111,8 +111,8 @@ follow the same console/folder ordering, including when `--deep` is used.
 ZIP comparisons use the ROM members, not the archive's checksum. Normally ZIP
 member CRCs come from archive metadata; `--deep` reads all supported ROM members
 and tests cheat archives for corruption. NES and SNES members are always read to
-also report possible headerless CRC matches. Those headerless matches are
-diagnostic candidates, since the core may calculate CRCs differently. N64 byte
+also report possible headerless CRC matches. NES/SNES headerless CRC matches count as confirmed CRC matches, following
+MiSTer loader behavior. N64 byte
 order and SMD interleaving are not converted. CD/game-ID systems (such as PSX) and
 arcade ROM sets are explicitly left unverified. Recursive matches describe files
 present on disk; MiSTer's actual lookup of nested cheat folders may vary by version.
@@ -156,3 +156,7 @@ This is an independent collection and is not an official MiSTer-devel release. N
 
 Cheat checker v2 recognizes Virtual Boy `.vb`/`.vboy` and Lynx `.lyx` ROMs,
 and explicitly warns when a selected console has zero supported ROMs checked.
+
+Cheat checker v3 counts NES/SNES headerless CRC matches and excludes different
+numbered sequels from similar-name suggestions. Raw and headerless CRCs remain
+available in deep details and CSV columns.
