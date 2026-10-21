@@ -7,10 +7,32 @@ from pathlib import Path
 from unittest.mock import patch
 
 api = runpy.run_path(str(Path(__file__).resolve().parents[1] /
-                        'check_mister_cheats_v9.py'))
+                        'check_mister_cheats_v10.py'))
 
 
 class CdAndMsuTests(unittest.TestCase):
+    def test_bonk_media_tags_and_cd_regions(self):
+        title = "Bonk III - Bonk's Big Adventure"
+        cheat = dict(system='turbografx16cd', stem=title + ' (SCD)(USA)',
+                     path='TGFX16-CD/Bonk.zip', crc='', issue='')
+        game = dict(system='turbografx16cd', stem=title + ' (USA)',
+                    path='TGFX16-CD/Bonk.cue', crc='', stripped='')
+        rows, missing = api['compare']([cheat], [game])
+        self.assertFalse(missing)
+        self.assertTrue(rows[0]['name_match'])
+        self.assertFalse(rows[0]['crc_match'])
+        key = api['match_title_key']
+        self.assertEqual(key('psx', 'Example (CD, SCD)(Jpn)'),
+                         key('psx', 'Example (Japan)'))
+        self.assertEqual(key('megacd', 'Example (Euro)'),
+                         key('megacd', 'Example (Europe)'))
+        for different in (title + ' (Japan)', title + ' (USA) (Rev 1)',
+                          title + ' (USA) [Hack]'):
+            self.assertNotEqual(key('turbografx16cd', cheat['stem']),
+                                key('turbografx16cd', different))
+        self.assertNotEqual(key('nes', 'Example (CD)(USA)'),
+                            key('nes', 'Example (USA)'))
+
     def test_all_fifteen_cheat_folders_in_menu(self):
         folders = ('AtariLynx', 'GAMEBOY', 'GBA', 'Jaguar', 'MegaCD',
                    'MegaDrive', 'N64', 'NES', 'PSX', 'SGB', 'SMS', 'SNES',

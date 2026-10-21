@@ -12,7 +12,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
-VERSION = "v9"
+VERSION = "v10"
 CHEATS_ROOT = os.environ.get("CHEATS_ROOT", "/media/fat/Cheats")
 GAMES_ROOT = os.environ.get("GAMES_ROOT", "/media/fat/games")
 LOG_DIR = os.environ.get("LOG_DIR", "/media/fat/Scripts/logs")
@@ -51,6 +51,20 @@ def system_key(name):
 def title_key(stem):
     # Strip only CRC tags. Region/revision/hack tags must stay distinct.
     return CRC_TAG.sub("", stem).strip().casefold()
+
+
+def match_title_key(system, stem):
+    title = title_key(stem)
+    if system in CD_SYSTEMS:
+        # Cheat collections include media labels absent from disc image names.
+        title = re.sub(r"\(\s*(?:cd|scd)(?:\s*,\s*(?:cd|scd))*\s*\)", "", title)
+        regions = {"jpn": "japan", "jap": "japan", "us": "usa",
+                   "euro": "europe", "eur": "europe"}
+        title = re.sub(r"\(\s*(jpn|jap|us|euro|eur)\s*\)",
+                       lambda m: "(" + regions[m.group(1)] + ")", title)
+        title = re.sub(r"\s*\(", " (", title)
+        title = re.sub(r"\s+", " ", title).strip()
+    return title
 
 
 def walk_files(root, errors, systems=None):
@@ -231,7 +245,7 @@ def compare(cheats, games):
         system = cheat["system"]
         if cheat["crc"]:
             indexes["crc"][system, cheat["crc"]].append(cheat)
-        indexes["name"][system, title_key(cheat["stem"])].append(cheat)
+        indexes["name"][system, match_title_key(system, cheat["stem"])].append(cheat)
     rows, missing = [], []
     for game in games:
         system = game["system"]
@@ -247,7 +261,7 @@ def compare(cheats, games):
             matches = indexes["crc"].get((system, game["n64_crc"]), [])
             status = "N64_BYTE_SWAPPED_CRC_MATCH"
         if not matches:
-            matches = indexes["name"].get((system, title_key(game["stem"])), [])
+            matches = indexes["name"].get((system, match_title_key(system, game["stem"])), [])
             status = "EXACT_NAME_MATCH"
         if not matches:
             missing.append(game)
@@ -269,7 +283,7 @@ def compare(cheats, games):
                              cheat_crc=cheat["crc"], game=game["path"],
                              game_crc=game["crc"], headerless_crc=game["stripped"],
                              crc_match=crc_match,
-                             name_match=title_key(cheat["stem"]) == title_key(game["stem"]),
+                             name_match=match_title_key(system, cheat["stem"]) == match_title_key(system, game["stem"]),
                              note=note))
     return rows, missing
 
