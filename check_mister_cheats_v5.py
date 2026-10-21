@@ -346,20 +346,6 @@ def main(argv=None):
              "Cheats: " + str(cheats_root), "Games: " + str(games_root),
              "Cheat archives: {} | ROM files/members checked: {}".format(len(cheats), len(games)),
              "Scan errors: {} | Skipped files: {}".format(len(errors), len(skipped)), "",
-             "Read-only: no ROMs or cheats are renamed, deleted, or modified.",
-             "Systems are compared separately using folder names and configured aliases.",
-             "Match order: raw or core-format CRC, then exact filename stem (case-insensitive).",
-             "Name matches count as matches even with different CRCs; compatibility is unverified.",
-             "Only selected console folders are searched recursively in both trees.",
-             "Games without matching cheats are listed; cheats without games are omitted.",
-             "Possible matches are similar titles (85% minimum), NOT confirmed matches.",
-             "Matched-game details are shown only with --deep.",
-             "A game without cheats is a normal report entry, not a scan error.",
-             "CRC_MATCH means raw ROM CRC agrees; this does not test cheat code correctness.",
-             "ZIP CRCs come from metadata unless --deep is used (NES/SNES/N64 are always read).",
-             "NES/SNES headerless and N64 byte-swapped CRCs count as matches. SMD interleaving is not converted.",
-             "CD/game-ID systems and arcade sets are not verified by this cartridge checker.",
-             "Scan errors can make the list of games without matching cheats incomplete.", "",
              "QUICK SUMMARY", "-" * 72]
     for system in sorted(selected):
         if not totals[system]:
