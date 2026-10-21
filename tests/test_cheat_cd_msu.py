@@ -7,10 +7,34 @@ from pathlib import Path
 from unittest.mock import patch
 
 api = runpy.run_path(str(Path(__file__).resolve().parents[1] /
-                        'check_mister_cheats_v8.py'))
+                        'check_mister_cheats_v9.py'))
 
 
 class CdAndMsuTests(unittest.TestCase):
+    def test_all_fifteen_cheat_folders_in_menu(self):
+        folders = ('AtariLynx', 'GAMEBOY', 'GBA', 'Jaguar', 'MegaCD',
+                   'MegaDrive', 'N64', 'NES', 'PSX', 'SGB', 'SMS', 'SNES',
+                   'TGFX16', 'TGFX16-CD', 'VirtualBoy')
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parent) as tmp:
+            root = Path(tmp)
+            for tree in ('cheats', 'games'):
+                for folder in folders:
+                    (root / tree / folder).mkdir(parents=True)
+            with patch('builtins.input', return_value='a'), contextlib.redirect_stdout(io.StringIO()):
+                selected = api['select_consoles'](root / 'cheats', root / 'games')
+            self.assertEqual(len(selected), 15)
+            self.assertIn('psx', selected)
+            self.assertIn('sgb', selected)
+            self.assertEqual(api['system_key']('AtariLynx'), api['system_key']('Lynx'))
+            for folder, extension in (('PSX', '.chd'), ('Jaguar', '.j64'),
+                                      ('AtariLynx', '.lnx'), ('VirtualBoy', '.vb')):
+                (root / 'games' / folder / ('Example' + extension)).write_bytes(b'rom')
+            errors, skipped = [], []
+            games = api['inventory_games'](root / 'games', selected, errors, skipped)
+            self.assertEqual(len(games), 4)
+            self.assertFalse(errors)
+            self.assertFalse(skipped)
+
     def test_cd_menu_inventory_and_name_matching(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parent) as tmp:
             root = Path(tmp)

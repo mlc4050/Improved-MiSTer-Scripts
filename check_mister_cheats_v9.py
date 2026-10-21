@@ -12,7 +12,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
-VERSION = "v8"
+VERSION = "v9"
 CHEATS_ROOT = os.environ.get("CHEATS_ROOT", "/media/fat/Cheats")
 GAMES_ROOT = os.environ.get("GAMES_ROOT", "/media/fat/games")
 LOG_DIR = os.environ.get("LOG_DIR", "/media/fat/Scripts/logs")
@@ -21,7 +21,7 @@ RED, GREEN, YELLOW, RESET = "\033[1;31m", "\033[1;32m", "\033[1;33m", "\033[0m"
 # These are cartridge/standalone ROM formats, not CD images or MAME ZIP parts.
 ROM_EXTENSIONS = set(".nes .fds .sfc .smc .gb .gbc .gba .sgb .gen .md .smd .sms "
                      ".gg .sg .pce .sgx .a26 .a52 .a78 .lnx .col .int .vec .ws "
-                     ".wsc .ngp .ngc .n64 .z64 .v64 .vb .vboy .lyx .rom .bin".split())
+                     ".wsc .ngp .ngc .n64 .z64 .v64 .vb .vboy .lyx .j64 .jag .abs .cof .rom .bin".split())
 ALIASES = {
     "genesis": "megadrive", "md": "megadrive", "gameboy": "gameboy",
     "gb": "gameboy", "gbc": "gameboy", "gameboycolor": "gameboy",
@@ -31,10 +31,12 @@ ALIASES = {
     "sms": "mastersystem", "segamastersystem": "mastersystem",
     "gg": "gamegear", "sega32x": "s32x", "32x": "s32x",
     "segacd": "megacd", "pcecd": "turbografx16cd", "pcenginecd": "turbografx16cd",
+    "atarilynx": "lynx", "atarijaguar": "jaguar", "vb": "virtualboy",
+    "playstation": "psx", "ps1": "psx",
 }
-CD_SYSTEMS = {"megacd", "turbografx16cd"}
-CD_GAME_EXTENSIONS = {".cue", ".chd", ".iso", ".m3u"}
-SPECIAL_SYSTEMS = {"psx", "playstation", "saturn", "neogeocd", "mame", "hbmame", "arcade"}
+CD_SYSTEMS = {"megacd", "turbografx16cd", "psx"}
+CD_GAME_EXTENSIONS = {".cue", ".chd", ".iso", ".m3u", ".ccd", ".pbp", ".img"}
+SPECIAL_SYSTEMS = {"saturn", "neogeocd", "mame", "hbmame", "arcade"}
 
 
 def is_msu1_folder(name):
@@ -123,6 +125,8 @@ def read_game(stream, size, extension):
 def inventory_games(root, wanted, errors, skipped, deep=False):
     games = []
     paths = list(walk_files(root, errors, wanted))
+    descriptor_stems = {str(p.with_suffix("").resolve()).casefold()
+                        for p in paths if p.suffix.casefold() in {".cue", ".ccd"}}
     playlist_members = set()
     for path in paths:
         rel = path.relative_to(root)
@@ -152,6 +156,8 @@ def inventory_games(root, wanted, errors, skipped, deep=False):
             continue
         if system in CD_SYSTEMS:
             if str(path.resolve()).casefold() in playlist_members:
+                continue
+            if ext == ".img" and str(path.with_suffix("").resolve()).casefold() in descriptor_stems:
                 continue
             if ext in CD_GAME_EXTENSIONS:
                 games.append(dict(system=system, path=str(rel), stem=path.stem,

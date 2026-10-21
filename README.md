@@ -14,7 +14,7 @@ A collection of ten standalone Python utilities for managing and maintaining a M
 | [`restore_ssh_customizations_v3.py`](restore_ssh_customizations_v3.py) | Restore a colored SSH prompt, `ls`/`ll` aliases, and `/media/fat/Scripts` as the startup directory. Replaces `/root/.profile` after confirmation. |
 | [`cleanup_orphan_mister_configs_v17.py`](cleanup_orphan_mister_configs_v17.py) | Identify orphan configuration files, input maps, DIP settings, and NVRAM using installed arcade MRAs, ROM ZIPs, and core files. Offers separate deletion confirmations. |
 | [`find_orphan_mame_zips_and_rbfs_v52.py`](find_orphan_mame_zips_and_rbfs_v52.py) | Report orphan MAME ZIPs, arcade RBFs, and missing references, with optional deeper ROM CRC checks and interactive cleanup. |
-| [`check_mister_cheats_v8.py`](check_mister_cheats_v8.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves a text report without changing games or cheats. |
+| [`check_mister_cheats_v9.py`](check_mister_cheats_v9.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves a text report without changing games or cheats. |
 | [`newest_arcade_mras_rbfs_v6_ctime.py`](newest_arcade_mras_rbfs_v6_ctime.py) | List recently changed MRA and RBF files, sorted by filesystem `ctime`, on screen. Does not modify the scanned files. |
 
 ## Requirements
@@ -53,16 +53,16 @@ python3 find_orphan_mame_zips_and_rbfs_v52.py --deep
 python3 newest_arcade_mras_rbfs_v6_ctime.py --days 14
 
 # Compare /media/fat/Cheats with /media/fat/games:
-python3 check_mister_cheats_v8.py
+python3 check_mister_cheats_v9.py
 
 # Skip the console menu and scan all common consoles:
-python3 check_mister_cheats_v8.py --all
+python3 check_mister_cheats_v9.py --all
 
 # Limit the scan to SNES and read ZIP contents to verify CRCs:
-python3 check_mister_cheats_v8.py --system SNES --deep
+python3 check_mister_cheats_v9.py --system SNES --deep
 
 # Override paths or map differently named system folders:
-python3 check_mister_cheats_v8.py --cheats-root /media/fat/Cheats --games-root /media/usb0/games --map Genesis=MegaDrive
+python3 check_mister_cheats_v9.py --cheats-root /media/fat/Cheats --games-root /media/usb0/games --map Genesis=MegaDrive
 ```
 
 The cheat checker writes `cheat_rom_comparison_report.log` under `/media/fat/Scripts/logs`. It also accepts
@@ -110,10 +110,10 @@ member CRCs come from archive metadata; `--deep` reads all supported ROM members
 and tests cheat archives for corruption. NES and SNES members are always read to
 also report possible headerless CRC matches. NES/SNES headerless CRC matches count as confirmed CRC matches, following
 MiSTer loader behavior. N64 ROMs are normalized to byte-swapped order for cheat CRC lookup; SMD
-interleaving is not converted. MegaCD/SegaCD and TGFX16-CD/PCE-CD support name-only
-matching for `.cue`, `.chd`, `.iso`, and `.m3u` games. Image CRCs and game IDs are
+interleaving is not converted. MegaCD/SegaCD, TGFX16-CD/PCE-CD, and PSX/PlayStation support name-only
+matching for `.cue`, `.chd`, `.iso`, `.m3u`, `.ccd`, `.pbp`, and `.img` games. Image CRCs and game IDs are
 not checked, even with `--deep`. Playlist-referenced images are not counted twice;
-BIN/audio tracks are ignored. Other CD/game-ID systems (such as PSX) and
+BIN/audio tracks are ignored. Other CD/game-ID systems (such as Saturn) and
 arcade ROM sets are explicitly left unverified. Recursive matches describe files
 present on disk; MiSTer's actual lookup of nested cheat folders may vary by version.
 Missing matches and scan errors never trigger
@@ -177,3 +177,9 @@ Region, revision, and hack tags remain significant; name-only matches do not ver
 
 Cheat checker v8 adds MegaCD and TGFX16-CD name matching and excludes SNES
 MSU-1/MSU1 folders, tagged filenames, and `.msu`/`.pcm` assets from scans.
+
+Cheat checker v9 also includes PSX name matching, Jaguar `.j64`/`.jag`/`.abs`/`.cof`
+files, and AtariLynx/Lynx aliases. All 15 cheat folders shown in the collection can
+appear in the console menu when their corresponding game folders exist:
+AtariLynx, GAMEBOY, GBA, Jaguar, MegaCD, MegaDrive, N64, NES, PSX, SGB, SMS,
+SNES, TGFX16, TGFX16-CD, and VirtualBoy. SGB stays separate from GAMEBOY.
