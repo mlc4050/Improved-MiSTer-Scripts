@@ -160,21 +160,6 @@ Several script headers acknowledge concepts or helpers from [MiSTer-devel/Script
 
 This is an independent collection and is not an official MiSTer-devel release. No ROMs or FPGA core binaries are included.
 
-Cheat checker v2 recognizes Virtual Boy `.vb`/`.vboy` and Lynx `.lyx` ROMs,
-and explicitly warns when a selected console has zero supported ROMs checked.
-
-Cheat checker v3 counts NES/SNES headerless CRC matches and excludes different
-numbered sequels from similar-name suggestions. Raw and headerless CRCs remain
-available in deep details.
-
-Cheat checker v4 removes CSV generation. Existing CSV files from older versions
-are left untouched. The grouped text log and console output remain available.
-
-Cheat checker v6 calculates the N64 byte-swapped cheat CRC for `.z64`, `.v64`,
-and `.n64` ROMs, detecting their byte order from the ROM signature. These files
-are read even inside ZIPs. Raw CRCs remain available; a normalized CRC match
-is confirmed separately. Unknown signatures do not produce a normalized match.
-
 Wi-Fi diagnostics v27 and newest arcade files v6 display results on screen only;
 they do not create diagnostic/report log files. Existing old logs are untouched.
 
