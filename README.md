@@ -55,6 +55,9 @@ python3 newest_arcade_mras_rbfs_v5_ctime.py --days 14
 # Compare /media/fat/Cheats with /media/fat/games:
 python3 check_mister_cheats_v1.py
 
+# Skip the console menu and scan all common consoles:
+python3 check_mister_cheats_v1.py --all
+
 # Limit the scan to SNES and read ZIP contents to verify CRCs:
 python3 check_mister_cheats_v1.py --system SNES --deep
 
@@ -70,7 +73,13 @@ utilities and are omitted from saved logs.
 
 Games and cheats must be in system subdirectories. The checker scans both trees
 recursively and compares within each system, with aliases for common folder names.
-Consoles with games but no cheats are included. The report highlights games
+By default it presents a numbered console menu built from the immediate folders
+present in both roots, recognizing aliases and excluding unsupported CD/arcade
+systems. Select a console, comma-separated numbers, A for all listed consoles,
+or Q to quit. Only selected console directories are traversed. Use `--system SNES`
+(repeatable) or `--all` to skip the menu. Explicit `--system` can also check a
+console that has games but no cheat folder. Quitting leaves existing reports intact.
+The report highlights games
 without matching cheats first and omits cheats that have no game. A game without
 cheats is a normal report entry, not a scan error. Both text and CSV reports
 include games without cheats. Use `--system` to limit the scan.

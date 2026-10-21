@@ -46,10 +46,12 @@ def title_key(stem):
     return CRC_TAG.sub("", stem).strip().casefold()
 
 
-def walk_files(root, errors):
+def walk_files(root, errors, systems=None):
     def failed(exc):
         errors.append("Scan error: {}".format(exc))
     for directory, dirs, files in os.walk(str(root), followlinks=False, onerror=failed):
+        if Path(directory) == root and systems:
+            dirs[:] = [name for name in dirs if system_key(name) in systems]
         dirs.sort(key=str.casefold)
         for name in sorted(files, key=str.casefold):
             path = Path(directory) / name
@@ -80,7 +82,7 @@ def read_rom(stream, size, extension):
 
 def inventory_games(root, wanted, errors, skipped, deep=False):
     games = []
-    for path in walk_files(root, errors):
+    for path in walk_files(root, errors, wanted):
         rel = path.relative_to(root)
         if len(rel.parts) < 2:
             skipped.append("Outside a system directory: " + str(rel))
@@ -119,7 +121,7 @@ def inventory_games(root, wanted, errors, skipped, deep=False):
 
 def inventory_cheats(root, selected, errors, deep=False):
     cheats = []
-    for path in walk_files(root, errors):
+    for path in walk_files(root, errors, selected):
         if path.suffix.casefold() != ".zip":
             continue
         rel = path.relative_to(root)
@@ -200,12 +202,55 @@ def possible_matches(cheats, missing):
     return candidates
 
 
+def console_folders(root):
+    folders = defaultdict(list)
+    for path in root.iterdir():
+        if path.is_dir() and not path.is_symlink():
+            folders[system_key(path.name)].append(path.name)
+    return folders
+
+
+def select_consoles(cheats_root, games_root):
+    cheat_folders = console_folders(cheats_root)
+    game_folders = console_folders(games_root)
+    common = sorted((set(cheat_folders) & set(game_folders)) - SPECIAL_SYSTEMS)
+    if not common:
+        print("No supported console folders found in both Cheats and games.")
+        return set()
+    print("\nSELECT CONSOLE TO CHECK")
+    print("Only folders present in both trees are listed; aliases are recognized.")
+    for number, system in enumerate(common, 1):
+        print("  {}. {}  (games: {})".format(number,
+              ", ".join(sorted(cheat_folders[system])),
+              ", ".join(sorted(game_folders[system]))))
+    print("  A. All listed consoles\n  Q. Quit")
+    while True:
+        try:
+            answer = input("Select number(s), separated by commas: ").strip().casefold()
+        except EOFError:
+            print("\nNo selection. Use --system SNES or --all for noninteractive runs.")
+            return set()
+        if answer == "q":
+            return set()
+        if answer == "a":
+            return set(common)
+        try:
+            numbers = [int(part.strip()) for part in answer.split(",")]
+            if all(1 <= number <= len(common) for number in numbers):
+                return {common[number - 1] for number in numbers}
+        except ValueError:
+            pass
+        print("Enter a listed number, comma-separated numbers, A, or Q.")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cheats-root", default=CHEATS_ROOT)
     parser.add_argument("--games-root", default=GAMES_ROOT)
     parser.add_argument("--log-dir", default=LOG_DIR)
-    parser.add_argument("--system", action="append", help="Only this system (repeatable)")
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--system", action="append", help="Skip menu; only this system (repeatable)")
+    selection.add_argument("--all", action="store_true", help="Skip menu; scan all common consoles")
     parser.add_argument("--map", action="append", default=[], metavar="CHEAT=GAME",
                         help="Map different system folder names, e.g. Genesis=MegaDrive")
     parser.add_argument("--deep", action="store_true",
@@ -223,10 +268,21 @@ def main(argv=None):
         if not root.is_dir():
             parser.error("Directory not found: " + str(root))
     selected = {system_key(s) for s in args.system or []}
+    if args.all:
+        selected = (set(console_folders(cheats_root)) & set(console_folders(games_root))) - SPECIAL_SYSTEMS
+        if not selected:
+            print("No supported consoles found in both trees.")
+            return 0
+    elif not selected:
+        selected = select_consoles(cheats_root, games_root)
+        if not selected:
+            print("No scan performed. Existing reports are unchanged.")
+            return 0
+    print("Selected consoles: " + ", ".join(sorted(selected)), flush=True)
     errors, skipped = [], []
     print("MiSTer cheat check {} - scanning cheats...".format(VERSION), flush=True)
     cheats = inventory_cheats(cheats_root, selected, errors, args.deep)
-    # An empty selection scans every game console, including those without cheats.
+    # Prune unselected console directories before recursive traversal.
     wanted = selected
     print("Scanning games and computing ROM CRCs (large collections may take time)...", flush=True)
     games = inventory_games(games_root, wanted, errors, skipped, args.deep)
@@ -245,7 +301,7 @@ def main(argv=None):
              "Systems are compared separately using folder names and configured aliases.",
              "Match order: raw CRC, then exact filename stem (case-insensitive).",
              "Name matches count as matches even with different CRCs; compatibility is unverified.",
-             "Both console trees are searched recursively, including consoles without cheats.",
+             "Only selected console folders are searched recursively in both trees.",
              "Games without matching cheats are listed; cheats without games are omitted.",
              "Possible matches are similar titles (85% minimum), NOT confirmed matches.",
              "Matched-game details are shown only with --deep.",
