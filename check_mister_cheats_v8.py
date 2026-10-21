@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare installed cartridge cheats with ROM names and CRC32s. Read-only scan."""
+"""Compare installed cheats with cartridge CRCs and game names. Read-only scan."""
 
 import argparse
 import difflib
@@ -12,7 +12,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
-VERSION = "v7"
+VERSION = "v8"
 CHEATS_ROOT = os.environ.get("CHEATS_ROOT", "/media/fat/Cheats")
 GAMES_ROOT = os.environ.get("GAMES_ROOT", "/media/fat/games")
 LOG_DIR = os.environ.get("LOG_DIR", "/media/fat/Scripts/logs")
@@ -30,9 +30,15 @@ ALIASES = {
     "tgfx16": "turbografx16", "tgfx16cd": "turbografx16cd", "turbografx": "turbografx16",
     "sms": "mastersystem", "segamastersystem": "mastersystem",
     "gg": "gamegear", "sega32x": "s32x", "32x": "s32x",
+    "segacd": "megacd", "pcecd": "turbografx16cd", "pcenginecd": "turbografx16cd",
 }
-SPECIAL_SYSTEMS = {"psx", "playstation", "saturn", "megacd", "segacd",
-                   "pcecd", "turbografx16cd", "neogeocd", "mame", "hbmame", "arcade"}
+CD_SYSTEMS = {"megacd", "turbografx16cd"}
+CD_GAME_EXTENSIONS = {".cue", ".chd", ".iso", ".m3u"}
+SPECIAL_SYSTEMS = {"psx", "playstation", "saturn", "neogeocd", "mame", "hbmame", "arcade"}
+
+
+def is_msu1_folder(name):
+    return bool(re.search(r"(?<![a-z0-9])msu[\s_-]*1(?![a-z0-9])", name, re.I))
 
 
 def system_key(name):
@@ -51,6 +57,9 @@ def walk_files(root, errors, systems=None):
     for directory, dirs, files in os.walk(str(root), followlinks=False, onerror=failed):
         if Path(directory) == root and systems:
             dirs[:] = [name for name in dirs if system_key(name) in systems]
+        relative = Path(directory).relative_to(root)
+        if relative.parts and system_key(relative.parts[0]) == "snes":
+            dirs[:] = [name for name in dirs if not is_msu1_folder(name)]
         dirs.sort(key=str.casefold)
         for name in sorted(files, key=str.casefold):
             path = Path(directory) / name
@@ -113,7 +122,21 @@ def read_game(stream, size, extension):
 
 def inventory_games(root, wanted, errors, skipped, deep=False):
     games = []
-    for path in walk_files(root, errors, wanted):
+    paths = list(walk_files(root, errors, wanted))
+    playlist_members = set()
+    for path in paths:
+        rel = path.relative_to(root)
+        if len(rel.parts) < 2 or system_key(rel.parts[0]) not in CD_SYSTEMS:
+            continue
+        if path.suffix.casefold() == ".m3u":
+            try:
+                for line in path.read_text(encoding="utf-8-sig").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        playlist_members.add(str((path.parent / line.replace("\\", "/")).resolve()).casefold())
+            except (OSError, UnicodeError) as exc:
+                errors.append("Playlist {}: {}".format(rel, exc))
+    for path in paths:
         rel = path.relative_to(root)
         # Palette assets are expected support files, not skipped ROM candidates.
         if path.suffix.casefold() == ".pal":
@@ -125,6 +148,17 @@ def inventory_games(root, wanted, errors, skipped, deep=False):
         if (wanted and system not in wanted) or system in SPECIAL_SYSTEMS:
             continue
         ext = path.suffix.casefold()
+        if system == "snes" and (is_msu1_folder(path.stem) or ext in {".msu", ".pcm"}):
+            continue
+        if system in CD_SYSTEMS:
+            if str(path.resolve()).casefold() in playlist_members:
+                continue
+            if ext in CD_GAME_EXTENSIONS:
+                games.append(dict(system=system, path=str(rel), stem=path.stem,
+                                  crc="", stripped="", n64_crc=""))
+            elif ext not in {".bin", ".wav", ".ogg", ".sub"}:
+                skipped.append(str(rel))
+            continue
         if ext not in ROM_EXTENSIONS and ext != ".zip":
             skipped.append(str(rel))
             continue
@@ -195,7 +229,7 @@ def compare(cheats, games):
     rows, missing = [], []
     for game in games:
         system = game["system"]
-        matches = indexes["crc"].get((system, game["crc"]), [])
+        matches = indexes["crc"].get((system, game["crc"]), []) if game["crc"] else []
         status = "CRC_MATCH"
         # NES iNES and SNES copier headers are excluded by MiSTer's loader CRC.
         rom_ext = Path(game["path"].split("::")[-1]).suffix.casefold()
@@ -221,7 +255,9 @@ def compare(cheats, games):
                 note = "CRC matches ROM data excluding its header (MiSTer loader behavior)."
             elif status != "CRC_MATCH":
                 note = "Counted as matched by name; cheat compatibility is not verified."
-                if cheat["crc"] and not crc_match:
+                if system in CD_SYSTEMS:
+                    note += " CD image CRC/game ID is not checked."
+                if cheat["crc"] and game["crc"] and not crc_match:
                     note += " Checksums differ."
             rows.append(dict(system=system, status=status, cheat=cheat["path"],
                              cheat_crc=cheat["crc"], game=game["path"],
@@ -385,7 +421,7 @@ def main(argv=None):
     previous = None
     for game in missing:
         previous = group_heading(game["path"], previous)
-        lines.append("    {}  CRC {}".format(game["path"], game["crc"]))
+        lines.append("    {}  CRC {}".format(game["path"], game["crc"] or "not checked (CD name-only)"))
         suggestions = candidates.get((game["system"], game["path"]), [])
         for cheat in suggestions:
             lines.append("      POSSIBLE MATCH (still unmatched): {}  CRC {}".format(
@@ -401,7 +437,7 @@ def main(argv=None):
             previous = group_heading(row["game"], previous)
             lines.extend(["    " + row["game"], "      {}: {}".format(row["status"], row["cheat"]),
                           "      Raw ROM CRC: {} | Cheat CRC: {}".format(
-                              row["game_crc"], row["cheat_crc"] or "not tagged")])
+                              row["game_crc"] or "not checked (CD name-only)", row["cheat_crc"] or "not tagged")])
             if row["headerless_crc"]:
                 lines.append("      Headerless CRC: " + row["headerless_crc"])
             if row["note"]:

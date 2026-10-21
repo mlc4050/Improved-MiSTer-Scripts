@@ -14,7 +14,7 @@ A collection of ten standalone Python utilities for managing and maintaining a M
 | [`restore_ssh_customizations_v3.py`](restore_ssh_customizations_v3.py) | Restore a colored SSH prompt, `ls`/`ll` aliases, and `/media/fat/Scripts` as the startup directory. Replaces `/root/.profile` after confirmation. |
 | [`cleanup_orphan_mister_configs_v17.py`](cleanup_orphan_mister_configs_v17.py) | Identify orphan configuration files, input maps, DIP settings, and NVRAM using installed arcade MRAs, ROM ZIPs, and core files. Offers separate deletion confirmations. |
 | [`find_orphan_mame_zips_and_rbfs_v52.py`](find_orphan_mame_zips_and_rbfs_v52.py) | Report orphan MAME ZIPs, arcade RBFs, and missing references, with optional deeper ROM CRC checks and interactive cleanup. |
-| [`check_mister_cheats_v7.py`](check_mister_cheats_v7.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves a text report without changing games or cheats. |
+| [`check_mister_cheats_v8.py`](check_mister_cheats_v8.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves a text report without changing games or cheats. |
 | [`newest_arcade_mras_rbfs_v6_ctime.py`](newest_arcade_mras_rbfs_v6_ctime.py) | List recently changed MRA and RBF files, sorted by filesystem `ctime`, on screen. Does not modify the scanned files. |
 
 ## Requirements
@@ -53,16 +53,16 @@ python3 find_orphan_mame_zips_and_rbfs_v52.py --deep
 python3 newest_arcade_mras_rbfs_v6_ctime.py --days 14
 
 # Compare /media/fat/Cheats with /media/fat/games:
-python3 check_mister_cheats_v7.py
+python3 check_mister_cheats_v8.py
 
 # Skip the console menu and scan all common consoles:
-python3 check_mister_cheats_v7.py --all
+python3 check_mister_cheats_v8.py --all
 
 # Limit the scan to SNES and read ZIP contents to verify CRCs:
-python3 check_mister_cheats_v7.py --system SNES --deep
+python3 check_mister_cheats_v8.py --system SNES --deep
 
 # Override paths or map differently named system folders:
-python3 check_mister_cheats_v7.py --cheats-root /media/fat/Cheats --games-root /media/usb0/games --map Genesis=MegaDrive
+python3 check_mister_cheats_v8.py --cheats-root /media/fat/Cheats --games-root /media/usb0/games --map Genesis=MegaDrive
 ```
 
 The cheat checker writes `cheat_rom_comparison_report.log` under `/media/fat/Scripts/logs`. It also accepts
@@ -73,7 +73,7 @@ utilities and are omitted from saved logs.
 Games and cheats must be in system subdirectories. The checker scans both trees
 recursively and compares within each system, with aliases for common folder names.
 By default it presents a numbered console menu built from the immediate folders
-present in both roots, recognizing aliases and excluding unsupported CD/arcade
+present in both roots, recognizing aliases and excluding other unsupported CD/arcade
 systems. Select a console, comma-separated numbers, A for all listed consoles,
 or Q to quit. Only selected console directories are traversed. Use `--system SNES`
 (repeatable) or `--all` to skip the menu. Explicit `--system` can also check a
@@ -82,14 +82,14 @@ The report highlights games
 without matching cheats first and omits cheats that have no game. A game without
 cheats is a normal report entry, not a scan error. The text report includes games without cheats. Use `--system` to limit the scan.
 `CRC_MATCH` confirms the raw ROM CRC agrees with the
-cheat filename's `[12345678]` tag. Exact filename stems are reported separately
-from titles that agree only after stripping CRC tags. A name match with a different
+cheat filename's `[12345678]` tag. Exact filename comparisons ignore these CRC tags.
+A name match with a different
 CRC is flagged because the cheat may target another ROM revision. Region and
 revision tags are preserved when suggesting title matches.
 
 Matches are chosen per game in this order: raw CRC, headerless NES/SNES CRC, then exact filename stem
-(case-insensitive, excluding the file extension). Similar titles do not count as
-matches, including titles that agree only after removing a CRC tag. Either a CRC
+(case-insensitive, excluding the file extension and bracketed CRC tags). Similar titles do not count as
+matches. Either a CRC
 match or an exact name match is sufficient. An exact name match with a different
 CRC is noted because compatibility is unverified. Games with neither match appear
 under games without matching cheats.
@@ -110,7 +110,10 @@ member CRCs come from archive metadata; `--deep` reads all supported ROM members
 and tests cheat archives for corruption. NES and SNES members are always read to
 also report possible headerless CRC matches. NES/SNES headerless CRC matches count as confirmed CRC matches, following
 MiSTer loader behavior. N64 ROMs are normalized to byte-swapped order for cheat CRC lookup; SMD
-interleaving is not converted. CD/game-ID systems (such as PSX) and
+interleaving is not converted. MegaCD/SegaCD and TGFX16-CD/PCE-CD support name-only
+matching for `.cue`, `.chd`, `.iso`, and `.m3u` games. Image CRCs and game IDs are
+not checked, even with `--deep`. Playlist-referenced images are not counted twice;
+BIN/audio tracks are ignored. Other CD/game-ID systems (such as PSX) and
 arcade ROM sets are explicitly left unverified. Recursive matches describe files
 present on disk; MiSTer's actual lookup of nested cheat folders may vary by version.
 Missing matches and scan errors never trigger
@@ -171,3 +174,6 @@ they do not create diagnostic/report log files. Existing old logs are untouched.
 
 Cheat checker v7 excludes bracketed eight-digit CRC tags from exact title matching.
 Region, revision, and hack tags remain significant; name-only matches do not verify compatibility.
+
+Cheat checker v8 adds MegaCD and TGFX16-CD name matching and excludes SNES
+MSU-1/MSU1 folders, tagged filenames, and `.msu`/`.pcm` assets from scans.
