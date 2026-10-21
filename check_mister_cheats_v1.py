@@ -1,0 +1,355 @@
+#!/usr/bin/env python3
+"""Compare installed cartridge cheats with ROM names and CRC32s. Read-only scan."""
+
+import argparse
+import csv
+import difflib
+import os
+import re
+import sys
+import zipfile
+import zlib
+from collections import Counter, defaultdict
+from datetime import datetime
+from pathlib import Path
+
+VERSION = "v1"
+CHEATS_ROOT = os.environ.get("CHEATS_ROOT", "/media/fat/Cheats")
+GAMES_ROOT = os.environ.get("GAMES_ROOT", "/media/fat/games")
+LOG_DIR = os.environ.get("LOG_DIR", "/media/fat/Scripts/logs")
+CRC_TAG = re.compile(r"\[([0-9a-f]{8})\]", re.I)
+RED, GREEN, YELLOW, RESET = "\033[1;31m", "\033[1;32m", "\033[1;33m", "\033[0m"
+# These are cartridge/standalone ROM formats, not CD images or MAME ZIP parts.
+ROM_EXTENSIONS = set(".nes .fds .sfc .smc .gb .gbc .gba .sgb .gen .md .smd .sms "
+                     ".gg .sg .pce .sgx .a26 .a52 .a78 .lnx .col .int .vec .ws "
+                     ".wsc .ngp .ngc .n64 .z64 .v64 .rom .bin".split())
+ALIASES = {
+    "genesis": "megadrive", "md": "megadrive", "gameboy": "gameboy",
+    "gb": "gameboy", "gbc": "gameboy", "gameboycolor": "gameboy",
+    "gameboyadvance": "gba", "supernes": "snes", "superfamicom": "snes",
+    "famicom": "nes", "pcengine": "turbografx16", "pce": "turbografx16",
+    "tgfx16": "turbografx16", "turbografx": "turbografx16",
+    "sms": "mastersystem", "segamastersystem": "mastersystem",
+    "gg": "gamegear", "sega32x": "s32x", "32x": "s32x",
+}
+SPECIAL_SYSTEMS = {"psx", "playstation", "saturn", "megacd", "segacd",
+                   "pcecd", "turbografx16cd", "neogeocd", "mame", "hbmame", "arcade"}
+
+
+def system_key(name):
+    key = re.sub(r"[^a-z0-9]", "", name.casefold())
+    return ALIASES.get(key, key)
+
+
+def title_key(stem):
+    # Strip only CRC tags. Region/revision/hack tags must stay distinct.
+    return CRC_TAG.sub("", stem).strip().casefold()
+
+
+def walk_files(root, errors):
+    def failed(exc):
+        errors.append("Scan error: {}".format(exc))
+    for directory, dirs, files in os.walk(str(root), followlinks=False, onerror=failed):
+        dirs.sort(key=str.casefold)
+        for name in sorted(files, key=str.casefold):
+            path = Path(directory) / name
+            if not path.is_symlink():
+                yield path
+
+
+def read_rom(stream, size, extension):
+    """Raw CRC plus diagnostic headerless CRCs; never claim they match the core."""
+    prefix = stream.read(512)
+    raw = zlib.crc32(prefix)
+    offset = None
+    if extension == ".nes" and prefix.startswith(b"NES\x1a"):
+        offset = 16
+    elif extension in (".sfc", ".smc") and size % 1024 == 512:
+        offset = 512
+    stripped = zlib.crc32(prefix[offset:]) if offset is not None else 0
+    while True:
+        block = stream.read(1024 * 1024)
+        if not block:
+            break
+        raw = zlib.crc32(block, raw)
+        if offset is not None:
+            stripped = zlib.crc32(block, stripped)
+    return "{:08X}".format(raw & 0xffffffff), (
+        "{:08X}".format(stripped & 0xffffffff) if offset is not None else "")
+
+
+def inventory_games(root, wanted, errors, skipped, deep=False):
+    games = []
+    for path in walk_files(root, errors):
+        rel = path.relative_to(root)
+        if len(rel.parts) < 2:
+            skipped.append("Outside a system directory: " + str(rel))
+            continue
+        system = system_key(rel.parts[0])
+        if (wanted and system not in wanted) or system in SPECIAL_SYSTEMS:
+            continue
+        ext = path.suffix.casefold()
+        if ext not in ROM_EXTENSIONS and ext != ".zip":
+            skipped.append(str(rel))
+            continue
+        try:
+            if ext == ".zip":
+                with zipfile.ZipFile(str(path)) as archive:
+                    for info in archive.infolist():
+                        member = Path(info.filename)
+                        member_ext = member.suffix.casefold()
+                        if info.is_dir() or member_ext not in ROM_EXTENSIONS:
+                            continue
+                        # ZIP CRC is the uncompressed member CRC, never the ZIP's CRC.
+                        crc, stripped = "{:08X}".format(info.CRC), ""
+                        if deep or member_ext in (".nes", ".sfc", ".smc"):
+                            with archive.open(info) as stream:
+                                crc, stripped = read_rom(stream, info.file_size, member_ext)
+                        games.append(dict(system=system, path=str(rel) + "::" + info.filename,
+                                          stem=member.stem, crc=crc, stripped=stripped))
+            else:
+                with path.open("rb") as stream:
+                    crc, stripped = read_rom(stream, path.stat().st_size, ext)
+                games.append(dict(system=system, path=str(rel), stem=path.stem,
+                                  crc=crc, stripped=stripped))
+        except (OSError, ValueError, RuntimeError, NotImplementedError, zipfile.BadZipFile) as exc:
+            errors.append("{}: {}".format(rel, exc))
+    return games
+
+
+def inventory_cheats(root, selected, errors, deep=False):
+    cheats = []
+    for path in walk_files(root, errors):
+        if path.suffix.casefold() != ".zip":
+            continue
+        rel = path.relative_to(root)
+        system = system_key(rel.parts[0]) if len(rel.parts) > 1 else ""
+        if selected and system not in selected:
+            continue
+        issue = ""
+        try:
+            with zipfile.ZipFile(str(path)) as archive:
+                members = [i for i in archive.infolist() if not i.is_dir()]
+                if not members:
+                    issue = "Empty cheat archive"
+                if deep:
+                    bad = archive.testzip()
+                    if bad:
+                        issue = "Corrupt member: " + bad
+        except (OSError, ValueError, RuntimeError, NotImplementedError, zipfile.BadZipFile) as exc:
+            issue = str(exc)
+        if issue:
+            errors.append("Cheat {}: {}".format(rel, issue))
+        tags = CRC_TAG.findall(path.stem)
+        cheats.append(dict(system=system, path=str(rel), stem=path.stem,
+                           crc=tags[-1].upper() if tags else "", issue=issue,
+                           nested=len(rel.parts) > 2))
+    return cheats
+
+
+def compare(cheats, games):
+    indexes = {kind: defaultdict(list) for kind in ("crc", "name")}
+    for cheat in cheats:
+        if cheat["issue"] or not cheat["system"] or cheat["system"] in SPECIAL_SYSTEMS:
+            continue
+        system = cheat["system"]
+        if cheat["crc"]:
+            indexes["crc"][system, cheat["crc"]].append(cheat)
+        indexes["name"][system, cheat["stem"].casefold()].append(cheat)
+    rows, missing = [], []
+    for game in games:
+        system = game["system"]
+        matches = indexes["crc"].get((system, game["crc"]), [])
+        status = "CRC_MATCH"
+        if not matches:
+            matches = indexes["name"].get((system, game["stem"].casefold()), [])
+            status = "EXACT_NAME_MATCH"
+        if not matches:
+            missing.append(game)
+            continue
+        for cheat in matches:
+            crc_match = bool(cheat["crc"] and cheat["crc"] == game["crc"])
+            note = ""
+            if status != "CRC_MATCH":
+                note = "Counted as matched by name; cheat compatibility is not verified."
+                if cheat["crc"] and not crc_match:
+                    note += " Checksums differ."
+            rows.append(dict(system=system, status=status, cheat=cheat["path"],
+                             cheat_crc=cheat["crc"], game=game["path"],
+                             game_crc=game["crc"], headerless_crc=game["stripped"],
+                             crc_match=crc_match,
+                             name_match=cheat["stem"].casefold() == game["stem"].casefold(),
+                             note=note))
+    return rows, missing
+
+
+def possible_matches(cheats, missing):
+    titles = defaultdict(lambda: defaultdict(list))
+    for cheat in cheats:
+        if not cheat["issue"]:
+            title = re.sub(r"[^a-z0-9]+", " ", title_key(cheat["stem"])).strip()
+            if title:
+                titles[cheat["system"]][title].append(cheat)
+    candidates = defaultdict(list)
+    for game in missing:
+        title = re.sub(r"[^a-z0-9]+", " ", title_key(game["stem"])).strip()
+        choices = titles[game["system"]]
+        for close in difflib.get_close_matches(title, sorted(choices), n=3, cutoff=0.85):
+            for cheat in choices[close]:
+                candidates[game["system"], game["path"]].append(cheat)
+    return candidates
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--cheats-root", default=CHEATS_ROOT)
+    parser.add_argument("--games-root", default=GAMES_ROOT)
+    parser.add_argument("--log-dir", default=LOG_DIR)
+    parser.add_argument("--system", action="append", help="Only this system (repeatable)")
+    parser.add_argument("--map", action="append", default=[], metavar="CHEAT=GAME",
+                        help="Map different system folder names, e.g. Genesis=MegaDrive")
+    parser.add_argument("--deep", action="store_true",
+                        help="Include all matched-game details and verify ROM/cheat ZIP contents")
+    args = parser.parse_args(argv)
+    for mapping in args.map:
+        if "=" not in mapping:
+            parser.error("--map requires CHEAT=GAME")
+        left, right = mapping.split("=", 1)
+        if not left or not right:
+            parser.error("--map requires two folder names")
+        ALIASES[re.sub(r"[^a-z0-9]", "", left.casefold())] = system_key(right)
+    cheats_root, games_root = Path(args.cheats_root), Path(args.games_root)
+    for root in (cheats_root, games_root):
+        if not root.is_dir():
+            parser.error("Directory not found: " + str(root))
+    selected = {system_key(s) for s in args.system or []}
+    errors, skipped = [], []
+    print("MiSTer cheat check {} - scanning cheats...".format(VERSION), flush=True)
+    cheats = inventory_cheats(cheats_root, selected, errors, args.deep)
+    # An empty selection scans every game console, including those without cheats.
+    wanted = selected
+    print("Scanning games and computing ROM CRCs (large collections may take time)...", flush=True)
+    games = inventory_games(games_root, wanted, errors, skipped, args.deep)
+    rows, missing = compare(cheats, games)
+    candidates = possible_matches(cheats, missing)
+    totals = Counter(g["system"] for g in games)
+    unmatched = Counter(g["system"] for g in missing)
+    possible = Counter(g["system"] for g in missing
+                       if candidates.get((g["system"], g["path"])))
+    lines = ["MISTER CHEAT / ROM COMPARISON REPORT " + VERSION, "=" * 72,
+             "Generated: " + datetime.now().astimezone().isoformat(timespec="seconds"),
+             "Cheats: " + str(cheats_root), "Games: " + str(games_root),
+             "Cheat archives: {} | ROM files/members checked: {}".format(len(cheats), len(games)),
+             "Scan errors: {} | Skipped files: {}".format(len(errors), len(skipped)), "",
+             "Read-only: no ROMs or cheats are renamed, deleted, or modified.",
+             "Systems are compared separately using folder names and configured aliases.",
+             "Match order: raw CRC, then exact filename stem (case-insensitive).",
+             "Name matches count as matches even with different CRCs; compatibility is unverified.",
+             "Both console trees are searched recursively, including consoles without cheats.",
+             "Games without matching cheats are listed; cheats without games are omitted.",
+             "Possible matches are similar titles (85% minimum), NOT confirmed matches.",
+             "Matched-game details are shown only with --deep.",
+             "A game without cheats is a normal report entry, not a scan error.",
+             "CRC_MATCH means raw ROM CRC agrees; this does not test cheat code correctness.",
+             "ZIP CRCs come from member metadata unless --deep is used (NES/SNES are read).",
+             "Headerless CRCs are diagnostic only. N64 byte order/SMD interleaving are not converted.",
+             "CD/game-ID systems and arcade sets are not verified by this cartridge checker.",
+             "Scan errors can make the list of games without matching cheats incomplete.", "",
+             "QUICK SUMMARY", "-" * 72]
+    lines.append("Games with matching cheats (CRC or exact name): {}".format(len(games) - len(missing)))
+    lines.append("Games WITHOUT matching cheats: {}".format(len(missing)))
+    lines.extend(["", "TALLY BY CONSOLE", "-" * 72,
+                  "Console | Checked | Matched | Unmatched | With possible matches"])
+    for system in sorted(totals):
+        lines.append("{} | {} | {} | {} | {}".format(
+            system, totals[system], totals[system] - unmatched[system],
+            unmatched[system], possible[system]))
+    def location(path):
+        # ZIP member paths become virtual subfolders for report grouping.
+        normalized = path.replace("\\", "/").replace("::", "/")
+        parts = normalized.split("/")
+        return parts[0], "/".join(parts[1:-1]) or "(console root)"
+
+    def order(path):
+        console, folder = location(path)
+        return console.casefold(), folder.casefold(), path.casefold()
+
+    def group_heading(path, previous):
+        console, folder = location(path)
+        if previous is None or console != previous[0]:
+            lines.extend(["", "CONSOLE: " + console, "=" * 72])
+        if previous != (console, folder):
+            lines.extend(["", "  FOLDER: " + folder, "  " + "-" * 68])
+        return console, folder
+
+    missing.sort(key=lambda game: order(game["path"]))
+    rows.sort(key=lambda row: order(row["game"]))
+    lines.extend(["", "GAMES WITHOUT MATCHING CHEATS", "=" * 72])
+    previous = None
+    for game in missing:
+        previous = group_heading(game["path"], previous)
+        lines.append("    {}  CRC {}".format(game["path"], game["crc"]))
+        suggestions = candidates.get((game["system"], game["path"]), [])
+        for cheat in suggestions:
+            lines.append("      POSSIBLE MATCH (still unmatched): {}  CRC {}".format(
+                cheat["path"], cheat["crc"] or "not tagged"))
+        if not suggestions:
+            lines.append("      No similar-name cheat found.")
+    if not missing:
+        lines.append("None")
+    if args.deep:
+        lines.extend(["", "CONFIRMED MATCH DETAILS", "=" * 72])
+        previous = None
+        for row in rows:
+            previous = group_heading(row["game"], previous)
+            lines.extend(["    " + row["game"], "      {}: {}".format(row["status"], row["cheat"]),
+                          "      ROM CRC: {} | Cheat CRC: {}".format(
+                              row["game_crc"], row["cheat_crc"] or "not tagged")])
+            if row["note"]:
+                lines.append("      Note: " + row["note"])
+    lines.extend(["", "ERRORS / INCOMPLETE SCANS", "=" * 72] + (errors or ["None"]))
+    lines.extend(["", "SKIPPED FILES (UNSUPPORTED FORMAT OR LOCATION)", "=" * 72]
+                 + (skipped or ["None"]))
+    report = "\n".join(lines) + "\n"
+    output = Path(args.log_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    report_path = output / "cheat_rom_comparison_report.log"
+    report_path.write_text(report, encoding="utf-8")
+    csv_path = output / "cheat_rom_comparison_report.csv"
+    fields = ["system", "status", "cheat", "cheat_crc", "game", "game_crc",
+              "headerless_crc", "crc_match", "name_match", "note"]
+    with csv_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer.writeheader()
+        csv_rows = list(rows) if args.deep else []
+        for game in missing:
+            suggestions = candidates.get((game["system"], game["path"]), [])
+            for cheat in suggestions or [None]:
+                csv_rows.append(dict(system=game["system"],
+                                     status="POSSIBLE_MATCH" if cheat else "NO_CHEAT_MATCH",
+                                     game=game["path"], game_crc=game["crc"],
+                                     headerless_crc=game["stripped"],
+                                     cheat=cheat["path"] if cheat else "",
+                                     cheat_crc=cheat["crc"] if cheat else "",
+                                     crc_match=False, name_match=False,
+                                     note="Still unmatched; similar name only." if cheat else ""))
+        writer.writerows(sorted(csv_rows, key=lambda row: order(row["game"])))
+    colors = sys.stdout.isatty() and "NO_COLOR" not in os.environ and os.environ.get("TERM") != "dumb"
+    for line in lines:
+        color = GREEN if line.startswith("CRC_MATCH") else (
+            RED if any(line.startswith(s) for s in ("INVALID_", "NO_GAME_", "TITLE_MATCH_")) else
+            YELLOW if "CANDIDATE" in line or line.startswith("NAME_MATCH_CRC_DIFFERS") else "")
+        print(color + line + RESET if colors and color else line)
+    print("\nReports saved to:\n{}\n{}".format(report_path, csv_path))
+    return 1 if errors else 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("\nScan canceled.", file=sys.stderr)
+        sys.exit(130)
+    except OSError as exc:
+        print("ERROR: {}".format(exc), file=sys.stderr)
+        sys.exit(1)
