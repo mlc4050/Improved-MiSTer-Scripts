@@ -14,7 +14,7 @@ A collection of ten standalone Python utilities for managing and maintaining a M
 | [`restore_ssh_customizations_v3.py`](restore_ssh_customizations_v3.py) | Restore a colored SSH prompt, `ls`/`ll` aliases, and `/media/fat/Scripts` as the startup directory. Replaces `/root/.profile` after confirmation. |
 | [`cleanup_orphan_mister_configs_v17.py`](cleanup_orphan_mister_configs_v17.py) | Identify orphan configuration files, input maps, DIP settings, and NVRAM using installed arcade MRAs, ROM ZIPs, and core files. Offers separate deletion confirmations. |
 | [`find_orphan_mame_zips_and_rbfs_v52.py`](find_orphan_mame_zips_and_rbfs_v52.py) | Report orphan MAME ZIPs, arcade RBFs, and missing references, with optional deeper ROM CRC checks and interactive cleanup. |
-| [`check_mister_cheats_v6.py`](check_mister_cheats_v6.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves a text report without changing games or cheats. |
+| [`check_mister_cheats_v7.py`](check_mister_cheats_v7.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves a text report without changing games or cheats. |
 | [`newest_arcade_mras_rbfs_v6_ctime.py`](newest_arcade_mras_rbfs_v6_ctime.py) | List recently changed MRA and RBF files, sorted by filesystem `ctime`, on screen. Does not modify the scanned files. |
 
 ## Requirements
@@ -53,16 +53,16 @@ python3 find_orphan_mame_zips_and_rbfs_v52.py --deep
 python3 newest_arcade_mras_rbfs_v6_ctime.py --days 14
 
 # Compare /media/fat/Cheats with /media/fat/games:
-python3 check_mister_cheats_v6.py
+python3 check_mister_cheats_v7.py
 
 # Skip the console menu and scan all common consoles:
-python3 check_mister_cheats_v6.py --all
+python3 check_mister_cheats_v7.py --all
 
 # Limit the scan to SNES and read ZIP contents to verify CRCs:
-python3 check_mister_cheats_v6.py --system SNES --deep
+python3 check_mister_cheats_v7.py --system SNES --deep
 
 # Override paths or map differently named system folders:
-python3 check_mister_cheats_v6.py --cheats-root /media/fat/Cheats --games-root /media/usb0/games --map Genesis=MegaDrive
+python3 check_mister_cheats_v7.py --cheats-root /media/fat/Cheats --games-root /media/usb0/games --map Genesis=MegaDrive
 ```
 
 The cheat checker writes `cheat_rom_comparison_report.log` under `/media/fat/Scripts/logs`. It also accepts
@@ -168,3 +168,6 @@ is confirmed separately. Unknown signatures do not produce a normalized match.
 
 Wi-Fi diagnostics v27 and newest arcade files v6 display results on screen only;
 they do not create diagnostic/report log files. Existing old logs are untouched.
+
+Cheat checker v7 excludes bracketed eight-digit CRC tags from exact title matching.
+Region, revision, and hack tags remain significant; name-only matches do not verify compatibility.

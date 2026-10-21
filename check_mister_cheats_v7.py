@@ -12,7 +12,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
-VERSION = "v6"
+VERSION = "v7"
 CHEATS_ROOT = os.environ.get("CHEATS_ROOT", "/media/fat/Cheats")
 GAMES_ROOT = os.environ.get("GAMES_ROOT", "/media/fat/games")
 LOG_DIR = os.environ.get("LOG_DIR", "/media/fat/Scripts/logs")
@@ -188,7 +188,7 @@ def compare(cheats, games):
         system = cheat["system"]
         if cheat["crc"]:
             indexes["crc"][system, cheat["crc"]].append(cheat)
-        indexes["name"][system, cheat["stem"].casefold()].append(cheat)
+        indexes["name"][system, title_key(cheat["stem"])].append(cheat)
     rows, missing = [], []
     for game in games:
         system = game["system"]
@@ -204,7 +204,7 @@ def compare(cheats, games):
             matches = indexes["crc"].get((system, game["n64_crc"]), [])
             status = "N64_BYTE_SWAPPED_CRC_MATCH"
         if not matches:
-            matches = indexes["name"].get((system, game["stem"].casefold()), [])
+            matches = indexes["name"].get((system, title_key(game["stem"])), [])
             status = "EXACT_NAME_MATCH"
         if not matches:
             missing.append(game)
@@ -224,7 +224,7 @@ def compare(cheats, games):
                              cheat_crc=cheat["crc"], game=game["path"],
                              game_crc=game["crc"], headerless_crc=game["stripped"],
                              crc_match=crc_match,
-                             name_match=cheat["stem"].casefold() == game["stem"].casefold(),
+                             name_match=title_key(cheat["stem"]) == title_key(game["stem"]),
                              note=note))
     return rows, missing
 
