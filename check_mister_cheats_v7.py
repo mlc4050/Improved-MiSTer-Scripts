@@ -115,6 +115,9 @@ def inventory_games(root, wanted, errors, skipped, deep=False):
     games = []
     for path in walk_files(root, errors, wanted):
         rel = path.relative_to(root)
+        # Palette assets are expected support files, not skipped ROM candidates.
+        if path.suffix.casefold() == ".pal":
+            continue
         if len(rel.parts) < 2:
             skipped.append("Outside a system directory: " + str(rel))
             continue
