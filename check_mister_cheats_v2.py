@@ -13,7 +13,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
-VERSION = "v1"
+VERSION = "v2"
 CHEATS_ROOT = os.environ.get("CHEATS_ROOT", "/media/fat/Cheats")
 GAMES_ROOT = os.environ.get("GAMES_ROOT", "/media/fat/games")
 LOG_DIR = os.environ.get("LOG_DIR", "/media/fat/Scripts/logs")
@@ -22,13 +22,13 @@ RED, GREEN, YELLOW, RESET = "\033[1;31m", "\033[1;32m", "\033[1;33m", "\033[0m"
 # These are cartridge/standalone ROM formats, not CD images or MAME ZIP parts.
 ROM_EXTENSIONS = set(".nes .fds .sfc .smc .gb .gbc .gba .sgb .gen .md .smd .sms "
                      ".gg .sg .pce .sgx .a26 .a52 .a78 .lnx .col .int .vec .ws "
-                     ".wsc .ngp .ngc .n64 .z64 .v64 .rom .bin".split())
+                     ".wsc .ngp .ngc .n64 .z64 .v64 .vb .vboy .lyx .rom .bin".split())
 ALIASES = {
     "genesis": "megadrive", "md": "megadrive", "gameboy": "gameboy",
     "gb": "gameboy", "gbc": "gameboy", "gameboycolor": "gameboy",
     "gameboyadvance": "gba", "supernes": "snes", "superfamicom": "snes",
     "famicom": "nes", "pcengine": "turbografx16", "pce": "turbografx16",
-    "tgfx16": "turbografx16", "turbografx": "turbografx16",
+    "tgfx16": "turbografx16", "tgfx16cd": "turbografx16cd", "turbografx": "turbografx16",
     "sms": "mastersystem", "segamastersystem": "mastersystem",
     "gg": "gamegear", "sega32x": "s32x", "32x": "s32x",
 }
@@ -288,7 +288,8 @@ def main(argv=None):
     games = inventory_games(games_root, wanted, errors, skipped, args.deep)
     rows, missing = compare(cheats, games)
     candidates = possible_matches(cheats, missing)
-    totals = Counter(g["system"] for g in games)
+    totals = Counter({system: 0 for system in selected})
+    totals.update(g["system"] for g in games)
     unmatched = Counter(g["system"] for g in missing)
     possible = Counter(g["system"] for g in missing
                        if candidates.get((g["system"], g["path"])))
@@ -312,6 +313,9 @@ def main(argv=None):
              "CD/game-ID systems and arcade sets are not verified by this cartridge checker.",
              "Scan errors can make the list of games without matching cheats incomplete.", "",
              "QUICK SUMMARY", "-" * 72]
+    for system in sorted(selected):
+        if not totals[system]:
+            lines.append("WARNING: {}: no supported ROMs checked; cheat coverage is UNKNOWN. See skipped files/errors.".format(system))
     lines.append("Games with matching cheats (CRC or exact name): {}".format(len(games) - len(missing)))
     lines.append("Games WITHOUT matching cheats: {}".format(len(missing)))
     lines.extend(["", "TALLY BY CONSOLE", "-" * 72,
@@ -352,7 +356,7 @@ def main(argv=None):
         if not suggestions:
             lines.append("      No similar-name cheat found.")
     if not missing:
-        lines.append("None")
+        lines.append("None among checked ROMs." if games else "No ROMs checked; cheat coverage is UNKNOWN.")
     if args.deep:
         lines.extend(["", "CONFIRMED MATCH DETAILS", "=" * 72])
         previous = None
