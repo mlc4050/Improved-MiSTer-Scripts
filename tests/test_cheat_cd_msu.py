@@ -7,10 +7,30 @@ from pathlib import Path
 from unittest.mock import patch
 
 api = runpy.run_path(str(Path(__file__).resolve().parents[1] /
-                        'check_mister_cheats_v10.py'))
+                        'check_mister_cheats_v11.py'))
 
 
 class CdAndMsuTests(unittest.TestCase):
+    def test_collection_tags_generalize_across_titles(self):
+        key = api['match_title_key']
+        for title in ('Gate of Thunder', 'Akumajou Dracula X - Chi no Rondo', 'Other Game'):
+            for tags in ('FACT, FADT', 'FADT, FACT', 'FABT, FACT', 'FACT', 'FABT, FADT, FACT'):
+                with self.subTest(title=title, tags=tags):
+                    self.assertEqual(key('turbografx16cd', title + ' (Japan) (' + tags + ')'),
+                                     key('turbografx16cd', title + ' (SCD)(Jpn)'))
+        for tag in ('Rev 1', 'Hack', 'FACT, Hack', 'Unknown', 'USA'):
+            self.assertNotEqual(key('turbografx16cd', 'Gate of Thunder (Japan) (' + tag + ')'),
+                                key('turbografx16cd', 'Gate of Thunder (SCD)(Jpn)'))
+        self.assertNotEqual(key('nes', 'Other Game (Japan) (FACT)'),
+                            key('nes', 'Other Game (Japan)'))
+        cheat = dict(system='turbografx16cd', stem='Gate of Thunder (SCD)(Jpn)',
+                     path='TGFX16-CD/Gate.zip', crc='', issue='')
+        game = dict(system='turbografx16cd', stem='Gate of Thunder (Japan) (FACT, FADT)',
+                    path='TGFX16-CD/Gate.cue', crc='', stripped='')
+        rows, missing = api['compare']([cheat], [game])
+        self.assertFalse(missing)
+        self.assertEqual(rows[0]['status'], 'EXACT_NAME_MATCH')
+
     def test_rondo_and_cotton_collection_aliases(self):
         examples = (
             ('Akumajou Dracula X - Chi no Rondo (Japan) (FABT, FACT)',

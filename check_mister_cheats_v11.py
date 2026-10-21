@@ -12,7 +12,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
-VERSION = "v10"
+VERSION = "v11"
 CHEATS_ROOT = os.environ.get("CHEATS_ROOT", "/media/fat/Cheats")
 GAMES_ROOT = os.environ.get("GAMES_ROOT", "/media/fat/games")
 LOG_DIR = os.environ.get("LOG_DIR", "/media/fat/Scripts/logs")
@@ -58,6 +58,12 @@ def match_title_key(system, stem):
     if system in CD_SYSTEMS:
         # Cheat collections include media labels absent from disc image names.
         title = re.sub(r"\(\s*(?:cd|scd)(?:\s*,\s*(?:cd|scd))*\s*\)", "", title)
+        # Known collection labels may occur on many different disc titles.
+        # Only drop a whole tag if every token belongs to this allowlist.
+        collection_tags = {"fact", "fadt", "fabt"}
+        title = re.sub(r"\(([^()]*)\)",
+                       lambda m: "" if {part.strip() for part in m.group(1).split(",")} <= collection_tags
+                       else m.group(0), title)
         regions = {"jpn": "japan", "jap": "japan", "us": "usa",
                    "euro": "europe", "eur": "europe"}
         title = re.sub(r"\(\s*(jpn|jap|us|euro|eur)\s*\)",
@@ -68,8 +74,6 @@ def match_title_key(system, stem):
             # Specific collection naming differences; do not discard arbitrary
             # revision/hack tags or reorder unrelated game titles.
             title = {
-                "akumajou dracula x - chi no rondo (japan) (fabt, fact)":
-                    "akumajou dracula x - chi no rondo (japan)",
                 "fantastic night dreams - cotton (usa)":
                     "cotton - fantastic night dreams (usa)",
             }.get(title, title)
@@ -301,12 +305,12 @@ def possible_matches(cheats, missing):
     titles = defaultdict(lambda: defaultdict(list))
     for cheat in cheats:
         if not cheat["issue"]:
-            title = re.sub(r"[^a-z0-9]+", " ", title_key(cheat["stem"])).strip()
+            title = re.sub(r"[^a-z0-9]+", " ", match_title_key(cheat["system"], cheat["stem"])).strip()
             if title:
                 titles[cheat["system"]][title].append(cheat)
     candidates = defaultdict(list)
     for game in missing:
-        title = re.sub(r"[^a-z0-9]+", " ", title_key(game["stem"])).strip()
+        title = re.sub(r"[^a-z0-9]+", " ", match_title_key(game["system"], game["stem"])).strip()
         choices = titles[game["system"]]
         # Different numbered games must not become sequel suggestions.
         numbers = re.findall(r"\b\d+\b", title)

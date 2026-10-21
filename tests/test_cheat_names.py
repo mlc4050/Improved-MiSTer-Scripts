@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 compare = runpy.run_path(str(Path(__file__).resolve().parents[1] /
-                            'check_mister_cheats_v10.py'))['compare']
+                            'check_mister_cheats_v11.py'))['compare']
 
 
 class CheatNameTests(unittest.TestCase):
