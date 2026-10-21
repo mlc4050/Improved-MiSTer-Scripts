@@ -64,6 +64,15 @@ def match_title_key(system, stem):
                        lambda m: "(" + regions[m.group(1)] + ")", title)
         title = re.sub(r"\s*\(", " (", title)
         title = re.sub(r"\s+", " ", title).strip()
+        if system == "turbografx16cd":
+            # Specific collection naming differences; do not discard arbitrary
+            # revision/hack tags or reorder unrelated game titles.
+            title = {
+                "akumajou dracula x - chi no rondo (japan) (fabt, fact)":
+                    "akumajou dracula x - chi no rondo (japan)",
+                "fantastic night dreams - cotton (usa)":
+                    "cotton - fantastic night dreams (usa)",
+            }.get(title, title)
     return title
 
 

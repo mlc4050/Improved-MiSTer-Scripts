@@ -11,6 +11,29 @@ api = runpy.run_path(str(Path(__file__).resolve().parents[1] /
 
 
 class CdAndMsuTests(unittest.TestCase):
+    def test_rondo_and_cotton_collection_aliases(self):
+        examples = (
+            ('Akumajou Dracula X - Chi no Rondo (Japan) (FABT, FACT)',
+             'Akumajou Dracula X - Chi no Rondo (SCD)(Jpn)'),
+            ('Fantastic Night Dreams - Cotton (USA)',
+             'Cotton - Fantastic Night Dreams (SCD)(USA)'),
+        )
+        for game_title, cheat_title in examples:
+            with self.subTest(game=game_title):
+                game = dict(system='turbografx16cd', stem=game_title,
+                            path='TGFX16-CD/game.cue', crc='', stripped='')
+                cheat = dict(system='turbografx16cd', stem=cheat_title,
+                             path='TGFX16-CD/cheat.zip', crc='', issue='')
+                rows, missing = api['compare']([cheat], [game])
+                self.assertFalse(missing)
+                self.assertTrue(rows[0]['name_match'])
+                self.assertFalse(rows[0]['crc_match'])
+                game['stem'] += ' [Hack]'
+                self.assertTrue(api['compare']([cheat], [game])[1])
+        key = api['match_title_key']
+        self.assertNotEqual(key('turbografx16cd', 'Fantastic Night Dreams - Cotton (Japan)'),
+                            key('turbografx16cd', 'Cotton - Fantastic Night Dreams (USA)'))
+
     def test_bonk_media_tags_and_cd_regions(self):
         title = "Bonk III - Bonk's Big Adventure"
         cheat = dict(system='turbografx16cd', stem=title + ' (SCD)(USA)',

@@ -188,3 +188,7 @@ Cheat checker v10 ignores CD media labels `(CD)`, `(SCD)`, and `(CD, SCD)`
 when comparing CD game names. It normalizes tag spacing and region abbreviations
 such as `(Jpn)`/`(Japan)` and `(Euro)`/`(Europe)`. Different regions, revisions,
 and hack tags remain distinct. These are name matches, not CRC verification.
+Specific TGFX16-CD aliases also recognize Rondo's `(Japan) (FABT, FACT)` naming
+and `Fantastic Night Dreams - Cotton (USA)` versus
+`Cotton - Fantastic Night Dreams (USA)`. These do not establish compatibility
+for other tagged variants.
