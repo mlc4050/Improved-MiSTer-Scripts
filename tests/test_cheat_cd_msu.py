@@ -136,7 +136,8 @@ class CdAndMsuTests(unittest.TestCase):
                 folder.mkdir(parents=True)
                 (folder / 'Game.sfc').write_bytes(b'rom')
             folder = root / 'SNES'
-            for name in ('Game [MSU-1].sfc', 'audio.pcm', 'audio.msu', 'color.PAL', 'Normal.sfc'):
+            for name in ('Game [MSU-1].sfc', 'audio.pcm', 'audio.msu', 'color.PAL',
+                         'palette.gbp', 'palette.GBP', 'Normal.sfc'):
                 (folder / name).write_bytes(b'rom')
             errors, skipped = [], []
             games = api['inventory_games'](root, {'snes'}, errors, skipped)
