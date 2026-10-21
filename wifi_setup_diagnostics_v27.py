@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MiSTer Wi-Fi Setup & Diagnostics v26. Single-file Python Wi-Fi manager.
+"""MiSTer Wi-Fi Setup & Diagnostics v27. Single-file Python Wi-Fi manager.
 
 Connection changes are saved safely to wpa_supplicant.conf and take effect
 when MiSTer is restarted. No wifi.sh dependency. Password entry is visible by user request.
@@ -18,8 +18,6 @@ from datetime import datetime
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-LOG_DIR = Path(os.environ.get('LOG_DIR', '/media/fat/Scripts/logs'))
-REPORT_PATH = LOG_DIR / 'wifi_diagnostics.log'
 WPA_CONF = Path(os.environ.get('WPA_CONF', '/media/fat/linux/wpa_supplicant.conf'))
 
 
@@ -123,14 +121,14 @@ def quality_label(value, thresholds, higher_is_better=True):
 
 
 def rated(label, rating):
-    """Colorize a rating for interactive terminals, leaving logs plain text."""
+    """Colorize a rating for interactive terminals, keeping other text unchanged."""
     codes = {'EXCELLENT': '1;32', 'GOOD': '32', 'OK': '1;33',
              'POOR': '1;31', 'UNKNOWN': '37'}
     return '{} [{}]'.format(label, rating)
 
 
 def colorize_diagnostic_report(report):
-    """Apply terminal colors only when displaying diagnostics, not saving logs."""
+    """Apply terminal colors only when displaying diagnostics, on screen."""
     codes = {'EXCELLENT': '1;32', 'GOOD': '32', 'OK': '1;33',
              'POOR': '1;31', 'UNKNOWN': '37'}
     return re.sub(r'\[(EXCELLENT|GOOD|OK|POOR|UNKNOWN)\]',
@@ -272,12 +270,6 @@ def diagnostics(ping=True, ping_count=20):
             lines.append('! ' + msg)
     lines.append('Note: diagnostics are read-only; ping sends network packets.')
     return '\n'.join(lines) + '\n'
-
-
-def save_report(report):
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    REPORT_PATH.write_text(re.sub(r'\x1b\[[0-9;]*m', '', report), encoding='utf-8')
-    print('Report saved to: {}'.format(REPORT_PATH))
 
 
 def parse_config_networks(text):
@@ -863,7 +855,7 @@ def show_menu(iface, link):
             '6 GHz' if freq and 5925 <= int(freq) <= 7125 else 'Unknown')
     width = 62
     print('\n' + tint('  +' + '-' * (width - 2) + '+', '36'))
-    print(tint(panel_line('        MiSTer Wi-Fi Setup & Diagnostics  v26', width), '1;36'))
+    print(tint(panel_line('        MiSTer Wi-Fi Setup & Diagnostics  v27', width), '1;36'))
     print(tint('  +' + '-' * (width - 2) + '+', '36'))
     print(panel_line('NETWORK STATUS', width))
     print(panel_line('  SSID:   {}'.format(ssid), width))
@@ -940,7 +932,7 @@ def main():
             clear_screen()
             ping = choice == '1'
             count = 20
-            print('MiSTer Wi-Fi Diagnostics v26')
+            print('MiSTer Wi-Fi Diagnostics v27')
             print('=' * 55)
             print('TEST IN PROGRESS - {} connection check'.format(
                 'quick' if choice == '2' else 'full'))
@@ -951,11 +943,6 @@ def main():
                 print('Reading Wi-Fi status; no router ping.', flush=True)
             report = run_diagnostics_with_spinner(count, ping=ping)
             print('\n' + colorize_diagnostic_report(report))
-            if choice == '1':
-                try:
-                    save_report(report)
-                except OSError as exc:
-                    print('Could not save report: {}'.format(exc))
         elif choice == '3':
             clear_screen()
             scan_networks()

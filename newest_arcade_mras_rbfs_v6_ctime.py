@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 
 MRA_ROOT = os.environ.get('MRA_ROOT', '/media/fat/_Arcade')
 RBF_ROOT = os.environ.get('RBF_ROOT', os.path.join(MRA_ROOT, 'cores'))
-LOG_DIR = os.environ.get('LOG_DIR', '/media/fat/Scripts/logs')
 
 
 def inventory(root, extension):
@@ -57,15 +56,6 @@ def main():
     report = '\n'.join(header + [section('NEWEST MRA FILES', mras, MRA_ROOT, cutoff), '',
                                  section('NEWEST RBF FILES', rbfs, RBF_ROOT, cutoff), ''])
     print(report)
-    try:
-        os.makedirs(LOG_DIR, exist_ok=True)
-        destination = os.path.join(LOG_DIR, 'arcade_newest_files.log')
-        with open(destination, 'w', encoding='utf-8') as output:
-            output.write(report + '\n')
-        print('Report saved to: ' + destination)
-    except OSError as exc:
-        print('WARNING: Could not save report: {}'.format(exc))
-        return 1
     return 0
 
 

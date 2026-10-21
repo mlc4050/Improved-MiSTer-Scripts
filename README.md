@@ -6,7 +6,7 @@ A collection of ten standalone Python utilities for managing and maintaining a M
 
 | Script | Purpose |
 | --- | --- |
-| [`wifi_setup_diagnostics_v26.py`](wifi_setup_diagnostics_v26.py) | Scan Wi-Fi networks, manage saved networks and priorities, change country/password settings, and report connection quality and gateway latency. |
+| [`wifi_setup_diagnostics_v27.py`](wifi_setup_diagnostics_v27.py) | Scan Wi-Fi networks, manage saved networks and priorities, change country/password settings, and report connection quality and gateway latency. |
 | [`bluetooth_manager_v16.py`](bluetooth_manager_v16.py) | Pair devices through MiSTer's `btctl`, manage paired devices, and inspect adapter and connection diagnostics. |
 | [`fast_usb_polling_manager_v10.py`](fast_usb_polling_manager_v10.py) | Inspect and enable/disable fast USB polling options in `linux/u-boot.txt`. Reboot to apply changes. |
 | [`ftp_ssh_manager_v2.py`](ftp_ssh_manager_v2.py) | Start/stop FTP and SSH, control startup settings, and optionally update MiSTer firewall rules. |
@@ -15,7 +15,7 @@ A collection of ten standalone Python utilities for managing and maintaining a M
 | [`cleanup_orphan_mister_configs_v17.py`](cleanup_orphan_mister_configs_v17.py) | Identify orphan configuration files, input maps, DIP settings, and NVRAM using installed arcade MRAs, ROM ZIPs, and core files. Offers separate deletion confirmations. |
 | [`find_orphan_mame_zips_and_rbfs_v52.py`](find_orphan_mame_zips_and_rbfs_v52.py) | Report orphan MAME ZIPs, arcade RBFs, and missing references, with optional deeper ROM CRC checks and interactive cleanup. |
 | [`check_mister_cheats_v5.py`](check_mister_cheats_v5.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves a text report without changing games or cheats. |
-| [`newest_arcade_mras_rbfs_v5_ctime.py`](newest_arcade_mras_rbfs_v5_ctime.py) | List recently changed MRA and RBF files, sorted by filesystem `ctime`, and save a report. Does not modify the scanned files. |
+| [`newest_arcade_mras_rbfs_v6_ctime.py`](newest_arcade_mras_rbfs_v6_ctime.py) | List recently changed MRA and RBF files, sorted by filesystem `ctime`, on screen. Does not modify the scanned files. |
 
 ## Requirements
 
@@ -32,7 +32,7 @@ Open a terminal on MiSTer or connect over SSH, then run a script explicitly with
 
 ```sh
 cd /media/fat/Scripts
-python3 wifi_setup_diagnostics_v26.py
+python3 wifi_setup_diagnostics_v27.py
 ```
 
 Most utilities present an interactive menu or confirmation prompts. Other examples:
@@ -50,7 +50,7 @@ python3 find_orphan_mame_zips_and_rbfs_v52.py
 python3 find_orphan_mame_zips_and_rbfs_v52.py --deep
 
 # Report MRA/RBF filesystem changes within the last 14 days (default: 7):
-python3 newest_arcade_mras_rbfs_v5_ctime.py --days 14
+python3 newest_arcade_mras_rbfs_v6_ctime.py --days 14
 
 # Compare /media/fat/Cheats with /media/fat/games:
 python3 check_mister_cheats_v5.py
@@ -134,7 +134,7 @@ Default locations include:
 
 Scripts expose selected environment-variable overrides, such as `MRA_ROOT`, `RBF_ROOT`, `MAME_ROOT`, `CONFIG_ROOT`, `MEDIA_ROOT`, `LOG_DIR`, `WPA_CONF`, and `MISTER_UBOOT_PATH`. Check each script's constants for the overrides it supports.
 
-Reports include `wifi_diagnostics.log`, `config_cleanup_report.log`, `arcade_cleanup_report.log`, and `arcade_newest_files.log`. Cleanup deletion logs describe the current run; previous deletion logs can be removed at the start of a later run.
+Reports include `config_cleanup_report.log`, `arcade_cleanup_report.log`. Cleanup deletion logs describe the current run; previous deletion logs can be removed at the start of a later run.
 
 ## Before making changes
 
@@ -165,3 +165,6 @@ Cheat checker v5 calculates the N64 byte-swapped cheat CRC for `.z64`, `.v64`,
 and `.n64` ROMs, detecting their byte order from the ROM signature. These files
 are read even inside ZIPs. Raw CRCs remain available; a normalized CRC match
 is confirmed separately. Unknown signatures do not produce a normalized match.
+
+Wi-Fi diagnostics v27 and newest arcade files v6 display results on screen only;
+they do not create diagnostic/report log files. Existing old logs are untouched.
