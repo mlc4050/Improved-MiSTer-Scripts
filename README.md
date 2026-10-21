@@ -14,7 +14,7 @@ A collection of ten standalone Python utilities for managing and maintaining a M
 | [`restore_ssh_customizations_v3.py`](restore_ssh_customizations_v3.py) | Restore a colored SSH prompt, `ls`/`ll` aliases, and `/media/fat/Scripts` as the startup directory. Replaces `/root/.profile` after confirmation. |
 | [`cleanup_orphan_mister_configs_v17.py`](cleanup_orphan_mister_configs_v17.py) | Identify orphan configuration files, input maps, DIP settings, and NVRAM using installed arcade MRAs, ROM ZIPs, and core files. Offers separate deletion confirmations. |
 | [`find_orphan_mame_zips_and_rbfs_v52.py`](find_orphan_mame_zips_and_rbfs_v52.py) | Report orphan MAME ZIPs, arcade RBFs, and missing references, with optional deeper ROM CRC checks and interactive cleanup. |
-| [`check_mister_cheats_v3.py`](check_mister_cheats_v3.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves text and CSV reports without changing games or cheats. |
+| [`check_mister_cheats_v4.py`](check_mister_cheats_v4.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves a text report without changing games or cheats. |
 | [`newest_arcade_mras_rbfs_v5_ctime.py`](newest_arcade_mras_rbfs_v5_ctime.py) | List recently changed MRA and RBF files, sorted by filesystem `ctime`, and save a report. Does not modify the scanned files. |
 
 ## Requirements
@@ -53,22 +53,21 @@ python3 find_orphan_mame_zips_and_rbfs_v52.py --deep
 python3 newest_arcade_mras_rbfs_v5_ctime.py --days 14
 
 # Compare /media/fat/Cheats with /media/fat/games:
-python3 check_mister_cheats_v3.py
+python3 check_mister_cheats_v4.py
 
 # Skip the console menu and scan all common consoles:
-python3 check_mister_cheats_v3.py --all
+python3 check_mister_cheats_v4.py --all
 
 # Limit the scan to SNES and read ZIP contents to verify CRCs:
-python3 check_mister_cheats_v3.py --system SNES --deep
+python3 check_mister_cheats_v4.py --system SNES --deep
 
 # Override paths or map differently named system folders:
-python3 check_mister_cheats_v3.py --cheats-root /media/fat/Cheats --games-root /media/usb0/games --map Genesis=MegaDrive
+python3 check_mister_cheats_v4.py --cheats-root /media/fat/Cheats --games-root /media/usb0/games --map Genesis=MegaDrive
 ```
 
-The cheat checker writes `cheat_rom_comparison_report.log` and
-`cheat_rom_comparison_report.csv` under `/media/fat/Scripts/logs`. It also accepts
+The cheat checker writes `cheat_rom_comparison_report.log` under `/media/fat/Scripts/logs`. It also accepts
 `--log-dir` and the `CHEATS_ROOT`, `GAMES_ROOT`, and `LOG_DIR` environment variables.
-Each run replaces its previous reports. Console colors follow the other report
+Each run replaces its previous text report. Console colors follow the other report
 utilities and are omitted from saved logs.
 
 Games and cheats must be in system subdirectories. The checker scans both trees
@@ -81,8 +80,7 @@ or Q to quit. Only selected console directories are traversed. Use `--system SNE
 console that has games but no cheat folder. Quitting leaves existing reports intact.
 The report highlights games
 without matching cheats first and omits cheats that have no game. A game without
-cheats is a normal report entry, not a scan error. Both text and CSV reports
-include games without cheats. Use `--system` to limit the scan.
+cheats is a normal report entry, not a scan error. The text report includes games without cheats. Use `--system` to limit the scan.
 `CRC_MATCH` confirms the raw ROM CRC agrees with the
 cheat filename's `[12345678]` tag. Exact filename stems are reported separately
 from titles that agree only after stripping CRC tags. A name match with a different
@@ -96,17 +94,16 @@ match or an exact name match is sufficient. An exact name match with a different
 CRC is noted because compatibility is unverified. Games with neither match appear
 under games without matching cheats.
 
-The default console, text, and CSV output lists only unmatched games, with up to
+The default console and text output lists only unmatched games, with up to
 three similar title suggestions per game (85% minimum similarity, within the same
 console). Suggestions ignore CRC tags and punctuation, but remain **unmatched**:
 they have neither the required CRC nor exact name match. The text report includes
 a per-console tally of checked, matched, unmatched, and unmatched games with
 suggestions. Each game is counted once even when several cheat files match it.
-Use `--deep` to include every confirmed match in the text/CSV output as well as
+Use `--deep` to include every confirmed match in the text output as well as
 verify ZIP contents. Cheats without games are not listed.
 Text details are grouped by the actual console folder, then by recursive game
-subfolder. ZIP members appear under their archive's virtual subfolders. CSV rows
-follow the same console/folder ordering, including when `--deep` is used.
+subfolder. ZIP members appear under their archive's virtual subfolders.
 
 ZIP comparisons use the ROM members, not the archive's checksum. Normally ZIP
 member CRCs come from archive metadata; `--deep` reads all supported ROM members
@@ -159,4 +156,7 @@ and explicitly warns when a selected console has zero supported ROMs checked.
 
 Cheat checker v3 counts NES/SNES headerless CRC matches and excludes different
 numbered sequels from similar-name suggestions. Raw and headerless CRCs remain
-available in deep details and CSV columns.
+available in deep details.
+
+Cheat checker v4 removes CSV generation. Existing CSV files from older versions
+are left untouched. The grouped text log and console output remain available.

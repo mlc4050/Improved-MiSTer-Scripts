@@ -2,7 +2,6 @@
 """Compare installed cartridge cheats with ROM names and CRC32s. Read-only scan."""
 
 import argparse
-import csv
 import difflib
 import os
 import re
@@ -13,7 +12,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
-VERSION = "v3"
+VERSION = "v4"
 CHEATS_ROOT = os.environ.get("CHEATS_ROOT", "/media/fat/Cheats")
 GAMES_ROOT = os.environ.get("GAMES_ROOT", "/media/fat/games")
 LOG_DIR = os.environ.get("LOG_DIR", "/media/fat/Scripts/logs")
@@ -389,32 +388,13 @@ def main(argv=None):
     output.mkdir(parents=True, exist_ok=True)
     report_path = output / "cheat_rom_comparison_report.log"
     report_path.write_text(report, encoding="utf-8")
-    csv_path = output / "cheat_rom_comparison_report.csv"
-    fields = ["system", "status", "cheat", "cheat_crc", "game", "game_crc",
-              "headerless_crc", "crc_match", "name_match", "note"]
-    with csv_path.open("w", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=fields)
-        writer.writeheader()
-        csv_rows = list(rows) if args.deep else []
-        for game in missing:
-            suggestions = candidates.get((game["system"], game["path"]), [])
-            for cheat in suggestions or [None]:
-                csv_rows.append(dict(system=game["system"],
-                                     status="POSSIBLE_MATCH" if cheat else "NO_CHEAT_MATCH",
-                                     game=game["path"], game_crc=game["crc"],
-                                     headerless_crc=game["stripped"],
-                                     cheat=cheat["path"] if cheat else "",
-                                     cheat_crc=cheat["crc"] if cheat else "",
-                                     crc_match=False, name_match=False,
-                                     note="Still unmatched; similar name only." if cheat else ""))
-        writer.writerows(sorted(csv_rows, key=lambda row: order(row["game"])))
     colors = sys.stdout.isatty() and "NO_COLOR" not in os.environ and os.environ.get("TERM") != "dumb"
     for line in lines:
         color = GREEN if line.startswith("CRC_MATCH") else (
             RED if any(line.startswith(s) for s in ("INVALID_", "NO_GAME_", "TITLE_MATCH_")) else
             YELLOW if "CANDIDATE" in line or line.startswith("NAME_MATCH_CRC_DIFFERS") else "")
         print(color + line + RESET if colors and color else line)
-    print("\nReports saved to:\n{}\n{}".format(report_path, csv_path))
+    print("\nReport saved to:\n{}".format(report_path))
     return 1 if errors else 0
 
 
