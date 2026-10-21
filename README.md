@@ -1,21 +1,27 @@
 # Improved MiSTer Scripts
 
-A collection of ten standalone Python utilities for managing and maintaining a MiSTer FPGA installation, created by [mlc4050](https://github.com/mlc4050).
+Ten standalone utilities to keep your MiSTer connected, organized, and ready to play. Manage networking and controllers, clean up arcade files, find cheats, and see what's new in your collection.
+
+Created by [mlc4050](https://github.com/mlc4050). Written in Python 3 with no additional Python packages required.
 
 ## Scripts
 
-| Script | Purpose |
-| --- | --- |
-| [`wifi_setup_diagnostics_v27.py`](wifi_setup_diagnostics_v27.py) | Scan Wi-Fi networks, manage saved networks and priorities, change country/password settings, and report connection quality and gateway latency. |
-| [`bluetooth_manager_v16.py`](bluetooth_manager_v16.py) | Pair devices through MiSTer's `btctl`, manage paired devices, and inspect adapter and connection diagnostics. |
-| [`fast_usb_polling_manager_v10.py`](fast_usb_polling_manager_v10.py) | Inspect and enable/disable fast USB polling options in `linux/u-boot.txt`. Reboot to apply changes. |
-| [`ftp_ssh_manager_v2.py`](ftp_ssh_manager_v2.py) | Start/stop FTP and SSH, control startup settings, and optionally update MiSTer firewall rules. |
-| [`mac_address_manager_v1.py`](mac_address_manager_v1.py) | Generate and save a locally administered Ethernet MAC address in `linux/u-boot.txt`. Reboot to apply it. |
-| [`restore_ssh_customizations_v3.py`](restore_ssh_customizations_v3.py) | Restore a colored SSH prompt, `ls`/`ll` aliases, and `/media/fat/Scripts` as the startup directory. Replaces `/root/.profile` after confirmation. |
-| [`cleanup_orphan_mister_configs_v17.py`](cleanup_orphan_mister_configs_v17.py) | Identify orphan configuration files, input maps, DIP settings, and NVRAM using installed arcade MRAs, ROM ZIPs, and core files. Offers separate deletion confirmations. |
-| [`find_orphan_mame_zips_and_rbfs_v52.py`](find_orphan_mame_zips_and_rbfs_v52.py) | Report orphan MAME ZIPs, arcade RBFs, and missing references, with optional deeper ROM CRC checks and interactive cleanup. |
-| [`check_mister_cheats_v11.py`](check_mister_cheats_v11.py) | Compare cheat ZIP names and CRC tags with cartridge ROMs, including ROMs inside ZIPs. Saves a text report without changing games or cheats. |
-| [`newest_arcade_mras_rbfs_v6_ctime.py`](newest_arcade_mras_rbfs_v6_ctime.py) | List recently changed MRA and RBF files, sorted by filesystem `ctime`, on screen. Does not modify the scanned files. |
+Run the examples from `/media/fat/Scripts` on your MiSTer. Most tools open an interactive menu; cleanup tools ask before deleting files.
+
+| Name | Description | File | Example usage |
+| --- | --- | --- | --- |
+| **Wi-Fi Setup & Diagnostics** | Manage saved networks and priorities, scan nearby Wi-Fi, and check signal quality and gateway latency. | [wifi_setup_diagnostics_v27.py](wifi_setup_diagnostics_v27.py) | `python3 wifi_setup_diagnostics_v27.py` |
+| **Bluetooth Manager** | Pair controllers and other devices, manage connections, and diagnose Bluetooth adapters. | [bluetooth_manager_v16.py](bluetooth_manager_v16.py) | `python3 bluetooth_manager_v16.py` |
+| **Fast USB Polling Manager** | View and change USB polling settings. Reboot to apply changes. | [fast_usb_polling_manager_v10.py](fast_usb_polling_manager_v10.py) | `python3 fast_usb_polling_manager_v10.py` |
+| **FTP & SSH Manager** | Start or stop remote-access services, choose whether they start at boot, and manage related firewall rules. | [ftp_ssh_manager_v2.py](ftp_ssh_manager_v2.py) | `python3 ftp_ssh_manager_v2.py` |
+| **Ethernet MAC Address Manager** | Generate and save a locally administered Ethernet MAC address. Reboot to apply it. | [mac_address_manager_v1.py](mac_address_manager_v1.py) | `python3 mac_address_manager_v1.py` |
+| **SSH Terminal Customizer** | Restore a colored prompt, handy file-listing aliases, and the Scripts startup folder. Replaces `/root/.profile` after confirmation. | [restore_ssh_customizations_v3.py](restore_ssh_customizations_v3.py) | `python3 restore_ssh_customizations_v3.py` |
+| **Orphan Configuration Cleaner** | Find unused arcade settings, input maps, DIP files, and NVRAM, with separate deletion prompts for each category. | [cleanup_orphan_mister_configs_v17.py](cleanup_orphan_mister_configs_v17.py) | `python3 cleanup_orphan_mister_configs_v17.py` |
+| **Arcade ROM & Core Checker** | Find orphan MAME ZIPs and arcade cores, report missing references, and optionally check required ROM CRCs. | [find_orphan_mame_zips_and_rbfs_v52.py](find_orphan_mame_zips_and_rbfs_v52.py) | `python3 find_orphan_mame_zips_and_rbfs_v52.py --deep` |
+| **Cheat Collection Checker** | Compare games with your cheat collection using cartridge CRCs and game names; report games without matches. CD comparisons use names only. | [check_mister_cheats_v11.py](check_mister_cheats_v11.py) | `python3 check_mister_cheats_v11.py --all` |
+| **Recent Arcade Files** | List MRA and RBF files by filesystem change time, filtered to a recent date range. | [newest_arcade_mras_rbfs_v6_ctime.py](newest_arcade_mras_rbfs_v6_ctime.py) | `python3 newest_arcade_mras_rbfs_v6_ctime.py --days 14` |
+
+**Getting started?** Follow [installation and usage](#installation-and-usage) below. The [paths and reports](#paths-and-reports) section shows where each tool looks for files.
 
 ## Requirements
 
