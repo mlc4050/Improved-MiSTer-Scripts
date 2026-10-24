@@ -22,12 +22,13 @@ class TimeManagerTests(unittest.TestCase):
     def test_zone_inventory_rejects_metadata_and_duplicate_trees(self):
         with tempfile.TemporaryDirectory(dir=ROOT / 'tests') as tmp:
             root = Path(tmp)
-            for name in ('America/Test', 'UTC', 'posix/America/Test', 'right/UTC'):
+            for name in ('America/Test', 'UTC', 'posix/America/Test', 'posix/UTC', 'right/UTC'):
                 p = root / name
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_bytes(b'TZif' + b'fixture')
             (root / 'zone.tab').write_text('metadata')
             self.assertEqual(set(tz.available_zones(root)), {'America/Test', 'UTC'})
+            self.assertEqual(tz.available_zones(root)['America/Test'], root / 'posix/America/Test')
 
     def test_zone_write_validation_idempotence_and_atomic_failure(self):
         with tempfile.TemporaryDirectory(dir=ROOT / 'tests') as tmp:

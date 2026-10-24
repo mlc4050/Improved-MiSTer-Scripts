@@ -19,6 +19,10 @@ DESTINATION = Path('/media/fat/linux/timezone')
 
 
 def available_zones(root=ZONE_ROOT):
+    # MiSTer links top-level regions into posix/. Path.rglob does not follow
+    # those directory links, so enumerate the real database used by timezone.sh.
+    if (root / 'posix').is_dir():
+        root = root / 'posix'
     zones = {}
     for path in root.rglob('*'):
         rel = path.relative_to(root)
