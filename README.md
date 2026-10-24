@@ -1,6 +1,6 @@
 # Improved MiSTer Scripts
 
-Ten standalone utilities to keep your MiSTer connected, organized, and ready to play. Manage networking and controllers, clean up arcade files, find cheats, and see what's new in your collection.
+Twelve standalone utilities to keep your MiSTer connected, organized, and ready to play. Manage networking and controllers, clean up arcade files, find cheats, and see what's new in your collection.
 
 Created by [mlc4050](https://github.com/mlc4050). Written in Python 3 with no additional Python packages required.
 
@@ -20,6 +20,10 @@ Run the examples from `/media/fat/Scripts` on your MiSTer. Most tools open an in
 | **Arcade ROM & Core Checker** | Find orphan MAME ZIPs and arcade cores, report missing references, and optionally check required ROM CRCs. | [find_orphan_mame_zips_and_rbfs_v52.py](find_orphan_mame_zips_and_rbfs_v52.py) | `python3 find_orphan_mame_zips_and_rbfs_v52.py` |
 | **Cheat Collection Checker** | Compare games with your cheat collection using cartridge CRCs and game names; report games without matches. CD comparisons use names only. | [check_mister_cheats_v11.py](check_mister_cheats_v11.py) | `python3 check_mister_cheats_v11.py --all` |
 | **Recent Arcade Files** | List MRA and RBF files by filesystem change time, filtered to a recent date range. | [newest_arcade_mras_rbfs_v6_ctime.py](newest_arcade_mras_rbfs_v6_ctime.py) | `python3 newest_arcade_mras_rbfs_v6_ctime.py --days 14` |
+| **RTC & Time Manager** | Synchronize system time over NTP, inspect hardware RTC status, and save system time to the RTC when available. | [rtc_manager_v1.py](rtc_manager_v1.py) | `python3 rtc_manager_v1.py` |
+| **Timezone Manager** | Search installed timezones offline or preview an automatic suggestion, then save the selected zone. | [timezone_manager_v1.py](timezone_manager_v1.py) | `python3 timezone_manager_v1.py` |
+
+See [Time Utilities documentation](TIME_MANAGERS.md) for RTC and timezone options.
 
 **Getting started?** Follow [installation and usage](#installation-and-usage) below. The [paths and reports](#paths-and-reports) section shows where each tool looks for files.
 
