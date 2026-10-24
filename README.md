@@ -23,7 +23,19 @@ Run the examples from `/media/fat/Scripts` on your MiSTer. Most tools open an in
 | **RTC & Time Manager** | Synchronize system time over NTP, inspect hardware RTC status, and save system time to the RTC when available. | [rtc_manager_v1.py](rtc_manager_v1.py) | `python3 rtc_manager_v1.py` |
 | **Timezone Manager** | Search installed timezones offline or preview an automatic suggestion, then save the selected zone. | [timezone_manager_v1.py](timezone_manager_v1.py) | `python3 timezone_manager_v1.py` |
 
-See [Time Utilities documentation](TIME_MANAGERS.md) for RTC and timezone options.
+The **RTC & Time Manager** and **Timezone Manager** are Python replacements for
+MiSTer's stock `rtc.sh` and `timezone.sh`. NTP system-time sync works without a
+hardware RTC. Timezone selection searches MiSTer's installed database, including
+its `posix` region directories. Both managers support a read-only status check:
+
+```sh
+python3 rtc_manager_v1.py --status
+python3 timezone_manager_v1.py --status
+```
+
+Interactive NTP synchronization and offline timezone selection have been tested
+on MiSTer. Hardware RTC writes require a detected RTC; online timezone detection
+is optional. See [Time Utilities documentation](TIME_MANAGERS.md) for all options.
 
 **Getting started?** Follow [installation and usage](#installation-and-usage) below. The [paths and reports](#paths-and-reports) section shows where each tool looks for files.
 
