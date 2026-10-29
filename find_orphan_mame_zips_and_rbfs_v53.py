@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from datetime import datetime
 
-VERSION = "v52"
+VERSION = "v53"
 
 # Normal MiSTer paths. Environment-variable overrides are useful for testing.
 MRA_ROOT = os.environ.get("MRA_ROOT", "/media/fat/_Arcade")
