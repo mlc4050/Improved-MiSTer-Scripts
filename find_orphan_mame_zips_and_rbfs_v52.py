@@ -58,44 +58,6 @@ def safe_color(value, enabled):
     return GREEN + str(value) + RESET if enabled else str(value)
 
 
-def print_missing_quick_view(missing_rom_mras, unresolved_references, colors=None):
-    """Put missing ROM sources and missing RBF references in one easy-to-scan list."""
-    if colors is None:
-        colors = terminal_colors_enabled()
-
-    print("MISSING ROM / RBF FILES - QUICK SUMMARY")
-    print("-" * 72)
-    failed_rom_groups = [
-        (item["mra"], group, result)
-        for item in missing_rom_mras
-        for recipe in item["recipes"]
-        for group, result in recipe["groups"]
-        if not result["satisfied"]
-    ]
-    if failed_rom_groups:
-        print("ROM sources with missing or invalid data:")
-        for mra, group, result in failed_rom_groups:
-            names = " | ".join(group["zip_names"]) or "(unnamed ROM source)"
-            # When the ZIP exists but the necessary ROM members do not, it is
-            # a ROM-content problem, not a missing archive filename.
-            kind = "ROM data" if result["explicit_archives"] else "ROM ZIP"
-            print("  {}: {}  (MRA: {})".format(
-                kind, missing_color(names, colors), mra))
-    else:
-        print("ROM sources with missing or invalid data: None")
-
-    if unresolved_references:
-        print("Missing RBF cores:")
-        for reference, mra_files in unresolved_references:
-            print("  {}  (referenced by {})".format(
-                missing_color(reference + ".rbf", colors),
-                ", ".join(mra_files)))
-    else:
-        print("Missing RBF cores: None")
-    print("-" * 72)
-    print()
-
-
 def print_colored_report(report_text, missing_rom_mras, orphan_mras,
                          colors=None):
     """Color missing files red and safe deletion candidates green, console only."""
@@ -1192,7 +1154,6 @@ def main():
     print("=" * 72)
     print("ARCADE CLEANUP REPORT")
     print("=" * 72)
-    print_missing_quick_view(missing_rom_mras, unresolved_references)
     try:
         with open(COMBINED_REPORT_PATH, "r") as report:
             print_colored_report(report.read(), missing_rom_mras, orphan_mras)
